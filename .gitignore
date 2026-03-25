@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Логи
+logs/
+*.log
+
+# Excel файлы
+*.xlsx
+*.xls
+
+# IDE
+.vscode/
+.idea/
+
+# Временные файлы
+*.tmp
+*.bak

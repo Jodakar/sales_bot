@@ -1,0 +1,9 @@
+vk-api>=11.10.0
+psycopg2-binary
+pandas
+openpyxl
+python-dotenv
+watchdog
+schedule
+aiohttp
+requests
