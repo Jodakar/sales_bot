@@ -1,14 +1,22 @@
+
 """
 VK Бот для управления продажами
 Доступен только одному пользователю (администратору)
 """
 
 import os
+import sys
+import io
 import logging
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from dotenv import load_dotenv
+from bot.handlers.menu import show_main_menu
+
+# Принудительно устанавливаем UTF-8 для вывода (чтобы эмодзи не ломали логи)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -18,8 +26,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/bot.log'),
-        logging.StreamHandler()
+        logging.FileHandler('logs/bot.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
@@ -52,16 +60,24 @@ def get_main_keyboard():
 def send_message(vk, user_id, message, keyboard=None):
     """Отправляет сообщение пользователю"""
     try:
+        keyboard_json = keyboard.get_keyboard() if keyboard else None
+        # Отладочный вывод
+        if keyboard_json:
+            logger.info(f"Отправляю клавиатуру: {keyboard_json[:200]}...")
+        else:
+            logger.info("Клавиатура не передаётся")
+        
         vk.messages.send(
             user_id=user_id,
             message=message,
             random_id=0,
-            keyboard=keyboard.get_keyboard() if keyboard else None
+            keyboard=keyboard_json
         )
+        return True
     except Exception as e:
         logger.error(f"Ошибка отправки сообщения {user_id}: {e}")
-
-
+        return False
+        
 def handle_start(vk, user_id):
     """Обработчик команды 'начать' или стартового сообщения"""
     welcome_text = (
@@ -73,7 +89,7 @@ def handle_start(vk, user_id):
         "👥 Клиенты — история заказов по клиентам\n"
         "📁 Отчеты — Excel-выгрузки\n"
         "ℹ️ Помощь — это сообщение\n\n"
-        "Выберите действие в меню ниже 👇"
+        "👇 Выберите действие в меню ниже"
     )
     send_message(vk, user_id, welcome_text, get_main_keyboard())
 
@@ -96,18 +112,35 @@ def handle_help(vk, user_id):
     send_message(vk, user_id, help_text, get_main_keyboard())
 
 
+def handle_unknown(vk, user_id):
+    """Обработчик неизвестной команды"""
+    unknown_text = (
+        "❓ Неизвестная команда.\n\n"
+        "Пожалуйста, используйте кнопки меню для навигации.\n"
+        "Или напишите 'Привет' для отображения главного меню."
+    )
+    send_message(vk, user_id, unknown_text, get_main_keyboard())
+
+
 def main():
     """Запуск бота"""
-    logger.info("Запуск VK бота...")
+    logger.info("=" * 50)
+    logger.info("Запуск VK бота для управления продажами")
     logger.info(f"Группа ID: {GROUP_ID}")
     logger.info(f"Администратор ID: {ADMIN_ID}")
+    logger.info("=" * 50)
     
     # Авторизация
-    vk_session = vk_api.VkApi(token=VK_TOKEN)
-    vk = vk_session.get_api()
-    longpoll = VkBotLongPoll(vk_session, GROUP_ID)
+    try:
+        vk_session = vk_api.VkApi(token=VK_TOKEN)
+        vk = vk_session.get_api()
+        longpoll = VkBotLongPoll(vk_session, GROUP_ID)
+        logger.info("✅ Бот успешно авторизован")
+    except Exception as e:
+        logger.error(f"❌ Ошибка авторизации: {e}")
+        return
     
-    logger.info("Бот запущен. Ожидание сообщений...")
+    logger.info("🚀 Бот запущен. Ожидание сообщений...")
     
     try:
         for event in longpoll.listen():
@@ -117,40 +150,55 @@ def main():
                 
                 # Проверяем, что сообщение от администратора
                 if user_id != ADMIN_ID:
-                    logger.warning(f"Попытка доступа от {user_id} (не администратор)")
+                    logger.warning(f"⚠️ Попытка доступа от {user_id} (не администратор)")
                     send_message(vk, user_id, "⛔ Доступ запрещён. Бот доступен только администратору.")
                     continue
                 
-                text = message.get('text', '').strip()
-                logger.info(f"Сообщение от {user_id}: {text}")
+                text = message.get('text', '').strip().lower()
+                logger.info(f"📨 Сообщение от {user_id}: {text}")
                 
                 # Обработка команд
-                if text in ['начать', 'start', 'привет', 'старт']:
+                if text in ['начать', 'start', 'привет', 'старт', 'меню', 'главное меню']:
                     handle_start(vk, user_id)
-                elif text in ['помощь', 'help', 'ℹ️ Помощь']:
+                elif text in ['помощь', 'help', 'ℹ️ помощь', '?']:
                     handle_help(vk, user_id)
-                elif text in ['🛒 Новый заказ', 'новый заказ']:
-                    from handlers.orders import handle_new_order
-                    handle_new_order(vk, user_id)
-                elif text in ['📦 Заказы', 'заказы']:
-                    from handlers.orders import handle_orders_list
-                    handle_orders_list(vk, user_id)
-                elif text in ['📊 Товары', 'товары']:
-                    from handlers.products import handle_products_menu
-                    handle_products_menu(vk, user_id)
-                elif text in ['👥 Клиенты', 'клиенты']:
-                    from handlers.customers import handle_customers_list
-                    handle_customers_list(vk, user_id)
-                elif text in ['📁 Отчеты', 'отчеты']:
-                    from handlers.reports import handle_reports_menu
-                    handle_reports_menu(vk, user_id)
+                elif text in ['🛒 новый заказ', 'новый заказ', 'заказ']:
+                    try:
+                        from handlers.orders import handle_new_order
+                        handle_new_order(vk, user_id)
+                    except ImportError:
+                        send_message(vk, user_id, "🔄 Функция 'Новый заказ' в разработке. Скоро будет доступна!", get_main_keyboard())
+                elif text in ['📦 заказы', 'заказы', 'список заказов']:
+                    try:
+                        from handlers.orders import handle_orders_list
+                        handle_orders_list(vk, user_id)
+                    except ImportError:
+                        send_message(vk, user_id, "🔄 Функция 'Заказы' в разработке. Скоро будет доступна!", get_main_keyboard())
+                elif text in ['📊 товары', 'товары', 'каталог']:
+                    try:
+                        from handlers.products import handle_products_menu
+                        handle_products_menu(vk, user_id)
+                    except ImportError:
+                        send_message(vk, user_id, "🔄 Функция 'Товары' в разработке. Скоро будет доступна!", get_main_keyboard())
+                elif text in ['👥 клиенты', 'клиенты', 'покупатели']:
+                    try:
+                        from handlers.customers import handle_customers_list
+                        handle_customers_list(vk, user_id)
+                    except ImportError:
+                        send_message(vk, user_id, "🔄 Функция 'Клиенты' в разработке. Скоро будет доступна!", get_main_keyboard())
+                elif text in ['📁 отчеты', 'отчеты', 'выгрузки', 'excel']:
+                    try:
+                        from handlers.reports import handle_reports_menu
+                        handle_reports_menu(vk, user_id)
+                    except ImportError:
+                        send_message(vk, user_id, "🔄 Функция 'Отчеты' в разработке. Скоро будет доступна!", get_main_keyboard())
                 else:
-                    send_message(vk, user_id, "Неизвестная команда. Нажмите на кнопку в меню.", get_main_keyboard())
+                    handle_unknown(vk, user_id)
                     
     except KeyboardInterrupt:
-        logger.info("Бот остановлен пользователем")
+        logger.info("🛑 Бот остановлен пользователем")
     except Exception as e:
-        logger.error(f"Ошибка в основном цикле: {e}")
+        logger.error(f"❌ Ошибка в основном цикле: {e}")
         raise
 
 
