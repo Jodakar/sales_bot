@@ -1,4 +1,3 @@
-
 """
 VK Бот для управления продажами
 Доступен только одному пользователю (администратору)
@@ -10,11 +9,14 @@ import io
 import logging
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from dotenv import load_dotenv
+
+# Импорты из наших модулей
+from bot.keyboards import get_main_keyboard
+from bot.utils.send_message import send_message
 from bot.handlers.menu import show_main_menu
 
-# Принудительно устанавливаем UTF-8 для вывода (чтобы эмодзи не ломали логи)
+# Принудительно устанавливаем UTF-8 для вывода
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
@@ -37,6 +39,9 @@ VK_TOKEN = os.getenv('VK_TOKEN')
 GROUP_ID = int(os.getenv('VK_GROUP_ID', 0))
 ADMIN_ID = int(os.getenv('VK_ADMIN_ID', 0))
 
+# Хранилище состояний пользователей (временное)
+user_states = {}
+
 # Проверка настройки
 if not VK_TOKEN or not GROUP_ID or not ADMIN_ID:
     logger.error("Не настроены переменные окружения VK_TOKEN, VK_GROUP_ID, VK_ADMIN_ID")
@@ -45,6 +50,7 @@ if not VK_TOKEN or not GROUP_ID or not ADMIN_ID:
 
 def get_main_keyboard():
     """Создаёт главную клавиатуру"""
+    from vk_api.keyboard import VkKeyboard, VkKeyboardColor
     keyboard = VkKeyboard(one_time=False)
     keyboard.add_button("🛒 Новый заказ", color=VkKeyboardColor.POSITIVE)
     keyboard.add_button("📦 Заказы", color=VkKeyboardColor.PRIMARY)
@@ -61,12 +67,6 @@ def send_message(vk, user_id, message, keyboard=None):
     """Отправляет сообщение пользователю"""
     try:
         keyboard_json = keyboard.get_keyboard() if keyboard else None
-        # Отладочный вывод
-        if keyboard_json:
-            logger.info(f"Отправляю клавиатуру: {keyboard_json[:200]}...")
-        else:
-            logger.info("Клавиатура не передаётся")
-        
         vk.messages.send(
             user_id=user_id,
             message=message,
@@ -77,7 +77,8 @@ def send_message(vk, user_id, message, keyboard=None):
     except Exception as e:
         logger.error(f"Ошибка отправки сообщения {user_id}: {e}")
         return False
-        
+
+
 def handle_start(vk, user_id):
     """Обработчик команды 'начать' или стартового сообщения"""
     welcome_text = (
@@ -157,6 +158,61 @@ def main():
                 text = message.get('text', '').strip().lower()
                 logger.info(f"📨 Сообщение от {user_id}: {text}")
                 
+                # Обработка состояний (ожидание ввода от пользователя)
+                if user_id in user_states:
+                    state = user_states[user_id]
+                    logger.info(f"📌 Состояние {user_id}: {state}")
+                    
+                    if state == "waiting_product_id":
+                        from bot.handlers.products import handle_search_by_id
+                        handle_search_by_id(vk, user_id, text)
+                        del user_states[user_id]
+                    
+                    elif state == "waiting_product_name":
+                        from bot.handlers.products import handle_search_by_name
+                        handle_search_by_name(vk, user_id, text)
+                        del user_states[user_id]
+                    
+                    elif state == "waiting_new_price":
+                        from bot.handlers.products import handle_update_price
+                        current_product = user_states.get(f"{user_id}_product")
+                        if current_product:
+                            handle_update_price(vk, user_id, current_product['id'], text)
+                        del user_states[user_id]
+                        if f"{user_id}_product" in user_states:
+                            del user_states[f"{user_id}_product"]
+                    
+                    elif state == "waiting_new_stock":
+                        from bot.handlers.products import handle_update_stock
+                        current_product = user_states.get(f"{user_id}_product")
+                        if current_product:
+                            handle_update_stock(vk, user_id, current_product['id'], text)
+                        del user_states[user_id]
+                        if f"{user_id}_product" in user_states:
+                            del user_states[f"{user_id}_product"]
+                    
+                    elif state == "waiting_order_id":
+                        from bot.handlers.orders import handle_order_detail
+                        handle_order_detail(vk, user_id, text)
+                        del user_states[user_id]
+                    
+                    elif state == "waiting_customer_phone":
+                        from bot.handlers.customers import handle_customer_by_phone
+                        handle_customer_by_phone(vk, user_id, text)
+                        del user_states[user_id]
+                    
+                    elif state == "waiting_customer_id":
+                        from bot.handlers.customers import handle_customer_detail
+                        handle_customer_detail(vk, user_id, text)
+                        del user_states[user_id]
+                    
+                    else:
+                        # Неизвестное состояние
+                        del user_states[user_id]
+                        send_message(vk, user_id, "❓ Действие отменено. Начните с главного меню.", get_main_keyboard())
+                    
+                    continue
+                
                 # Обработка команд
                 if text in ['начать', 'start', 'привет', 'старт', 'меню', 'главное меню']:
                     handle_start(vk, user_id)
@@ -164,34 +220,39 @@ def main():
                     handle_help(vk, user_id)
                 elif text in ['🛒 новый заказ', 'новый заказ', 'заказ']:
                     try:
-                        from handlers.orders import handle_new_order
+                        from bot.handlers.orders import handle_new_order
                         handle_new_order(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Новый заказ' в разработке. Скоро будет доступна!", get_main_keyboard())
                 elif text in ['📦 заказы', 'заказы', 'список заказов']:
                     try:
-                        from handlers.orders import handle_orders_list
+                        from bot.handlers.orders import handle_orders_list
                         handle_orders_list(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Заказы' в разработке. Скоро будет доступна!", get_main_keyboard())
                 elif text in ['📊 товары', 'товары', 'каталог']:
                     try:
-                        from handlers.products import handle_products_menu
+                        from bot.handlers.products import handle_products_menu
                         handle_products_menu(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Товары' в разработке. Скоро будет доступна!", get_main_keyboard())
                 elif text in ['👥 клиенты', 'клиенты', 'покупатели']:
                     try:
-                        from handlers.customers import handle_customers_list
+                        from bot.handlers.customers import handle_customers_list
                         handle_customers_list(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Клиенты' в разработке. Скоро будет доступна!", get_main_keyboard())
                 elif text in ['📁 отчеты', 'отчеты', 'выгрузки', 'excel']:
                     try:
-                        from handlers.reports import handle_reports_menu
+                        from bot.handlers.reports import handle_reports_menu
                         handle_reports_menu(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Отчеты' в разработке. Скоро будет доступна!", get_main_keyboard())
+                elif text.isdigit():
+                    # Если ввели число — ищем заказ
+                    user_states[user_id] = "waiting_order_id"
+                    from bot.handlers.orders import handle_order_detail
+                    handle_order_detail(vk, user_id, text)
                 else:
                     handle_unknown(vk, user_id)
                     

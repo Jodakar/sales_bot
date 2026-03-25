@@ -3,7 +3,8 @@
 """
 
 import logging
-from bot.main import send_message, get_main_keyboard
+from bot.keyboards import get_main_keyboard
+from bot.utils.send_message import send_message
 
 logger = logging.getLogger(__name__)
 
