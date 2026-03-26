@@ -53,6 +53,12 @@ async def orders_page():
     return read_page("orders.html")
 
 
+@app.get("/orders/create", response_class=HTMLResponse)
+async def create_order_page():
+    """Страница создания нового заказа"""
+    return read_page("create_order.html")
+
+
 @app.get("/orders/{order_id}", response_class=HTMLResponse)
 async def order_detail_page(order_id: int):
     html = read_page("order_detail.html")
@@ -62,6 +68,13 @@ async def order_detail_page(order_id: int):
 @app.get("/customers", response_class=HTMLResponse)
 async def customers_page():
     return read_page("customers.html")
+
+
+@app.get("/customers/{customer_id}", response_class=HTMLResponse)
+async def customer_detail_page(customer_id: int):
+    """Страница деталей клиента"""
+    html = read_page("customer_detail.html")
+    return html.replace("{{customer_id}}", str(customer_id))
 
 
 @app.get("/health")

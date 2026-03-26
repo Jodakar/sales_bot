@@ -6,6 +6,56 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
+        .add-customer {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .add-customer button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .add-customer button:hover {
+            background: #219a52;
+        }
+        .view-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .view-btn:hover {
+            background: #2980b9;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -17,6 +67,43 @@
         }
         th {
             background: #f5f5f5;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 20px;
+            width: 500px;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .modal-content button {
+            margin-top: 10px;
+            margin-right: 10px;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
         }
     </style>
 </head>
@@ -40,19 +127,37 @@
             <a href="/customers">👥 Клиенты</a>
         </div>
         
+        <div class="add-customer">
+            <button onclick="showAddModal()">➕ Добавить клиента</button>
+        </div>
+        
         <div class="card">
-            <h2>👥 Клиенты</h2>
+            <h2>👥 Список клиентов</h2>
             <div id="customers-table">
                 <p>Загрузка...</p>
             </div>
         </div>
     </div>
 
+    <!-- Модальное окно добавления клиента -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3>Добавить клиента</h3>
+            <input type="text" id="full_name" placeholder="ФИО *">
+            <input type="text" id="phone" placeholder="Телефон">
+            <input type="email" id="email" placeholder="Email">
+            <input type="text" id="address" placeholder="Адрес">
+            <input type="text" id="telegram" placeholder="Telegram">
+            <input type="text" id="whatsapp" placeholder="WhatsApp">
+            <button onclick="addCustomer()">Сохранить</button>
+            <button onclick="closeModal()">Отмена</button>
+        </div>
+    </div>
+
     <script>
         const token = localStorage.getItem('token');
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) window.location.href = '/login';
         
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
@@ -76,10 +181,14 @@
                     return;
                 }
                 
-                let html = ' <thead> 2<th>ID</th><th>Имя</th><th>Телефон</th><th>Email</th><th>Заказов</th> </thead> <tbody>';
+                let html = ' <thead> 2<th>ID</th><th>ФИО</th><th>Телефон</th><th>Email</th><th>Заказов</th><th>Дата регистрации</th><th>Действия</th> </thead> <tbody>';
                 
                 customers.forEach(c => {
-                    html += ` 3 <td>${c.customer_id}</td> <td>${c.full_name}</td> <td>${c.phone || '—'}</td> <td>${c.email || '—'}</td> <td>${c.orders_count || 0}</td>  `;
+                    html += ` 3 <td>${c.customer_id}  . <td style="font-weight: bold;">${c.full_name}  .  . ${c.phone || '—'}  .  . ${c.email || '—'}  .  . ${c.orders_count || 0}  .  . ${c.created_at || '—'}  .  .
+                                <button class="view-btn" onclick="viewCustomer(${c.customer_id})">👁️</button>
+                                <button class="edit-btn" onclick="editCustomer(${c.customer_id})">✏️</button>
+                                <button class="delete-btn" onclick="deleteCustomer(${c.customer_id})">🗑️</button>
+                             `;
                 });
                 
                 html += '</tbody> 扭';
@@ -89,11 +198,92 @@
             }
         }
         
+        function showAddModal() {
+            document.getElementById('modal').style.display = 'block';
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('full_name').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('telegram').value = '';
+            document.getElementById('whatsapp').value = '';
+        }
+        
+        async function addCustomer() {
+            const full_name = document.getElementById('full_name').value.trim();
+            if (!full_name) {
+                alert('Введите ФИО');
+                return;
+            }
+            
+            const customer = {
+                full_name: full_name,
+                phone: document.getElementById('phone').value || null,
+                email: document.getElementById('email').value || null,
+                address: document.getElementById('address').value || null,
+                telegram: document.getElementById('telegram').value || null,
+                whatsapp: document.getElementById('whatsapp').value || null
+            };
+            
+            try {
+                const response = await fetch('/api/customers/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(customer)
+                });
+                if (response.ok) {
+                    alert('✅ Клиент добавлен');
+                    closeModal();
+                    loadCustomers();
+                } else {
+                    alert('❌ Ошибка добавления');
+                }
+            } catch(e) {
+                alert('❌ Ошибка');
+            }
+        }
+        
+        function viewCustomer(id) {
+            window.location.href = `/customers/${id}`;
+        }
+        
+        function editCustomer(id) {
+            const newName = prompt('Введите новое ФИО:');
+            if (!newName) return;
+            
+            fetch(`/api/customers/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_name: newName })
+            }).then(res => {
+                if (res.ok) {
+                    alert('✅ Клиент обновлён');
+                    loadCustomers();
+                } else {
+                    alert('❌ Ошибка обновления');
+                }
+            });
+        }
+        
+        function deleteCustomer(id) {
+            if (!confirm('Удалить клиента? У него не должно быть заказов.')) return;
+            fetch(`/api/customers/${id}`, { method: 'DELETE' })
+                .then(res => {
+                    if (res.ok) {
+                        alert('✅ Клиент удалён');
+                        loadCustomers();
+                    } else {
+                        alert('❌ Ошибка удаления');
+                    }
+                });
+        }
+        
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) {
-                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
-            }
+            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

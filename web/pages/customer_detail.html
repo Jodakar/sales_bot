@@ -2,17 +2,16 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Заказы</title>
+    <title>TimoFey — Клиент</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
+        .detail-card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .back-btn { background: #95a5a6; margin-bottom: 20px; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+        .back-btn:hover { background: #7f8c8d; }
         .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
-        .view-btn:hover { background: #2980b9; }
-        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
-        .delete-btn:hover { background: #c0392b; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background: #f5f5f5; }
@@ -38,19 +37,15 @@
             <a href="/customers">👥 Клиенты</a>
         </div>
         
-        <div style="text-align: right; margin-bottom: 20px;">
-            <a href="/orders/create" style="background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">➕ Создать заказ</a>
-        </div>
+        <button class="back-btn" onclick="window.location.href='/customers'">← Назад к клиентам</button>
         
-        <div class="card">
-            <h2>📋 Список заказов</h2>
-            <div id="orders-table">
-                <p>Загрузка...</p>
-            </div>
+        <div id="customer-detail">
+            <p>Загрузка...</p>
         </div>
     </div>
 
     <script>
+        const customer_id = {{customer_id}};
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/login';
         
@@ -73,38 +68,43 @@
             return status;
         }
         
-        async function loadOrders() {
+        async function loadCustomer() {
             try {
-                const response = await fetch('/api/orders/');
-                const orders = await response.json();
+                const response = await fetch(`/api/customers/${customer_id}`);
+                const customer = await response.json();
                 
-                if (orders.length === 0) {
-                    document.getElementById('orders-table').innerHTML = '<p>📭 Нет заказов</p>';
-                    return;
+                let ordersHtml = '<h3>📋 Заказы клиента</h3><table><thead><tr><th>№</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
+                if (customer.orders && customer.orders.length > 0) {
+                    customer.orders.forEach(o => {
+                        ordersHtml += `<tr>
+                            <td><a href="/orders/${o.order_id}">#${o.order_id}</a></td>
+                            <td>${o.total_amount.toLocaleString()} ₽</td>
+                            <td>${getStatusBadge(o.status)}</td>
+                            <td>${o.created_at}</td>
+                        </tr>`;
+                    });
+                } else {
+                    ordersHtml += '<tr><td colspan="4">Нет заказов</td></tr>';
                 }
+                ordersHtml += '</tbody></table>';
                 
-                let html = ' <thead> 2<th>№</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Статус</th><th>Дата</th><th>Действия</th> </thead> <tbody>';
-                
-                orders.forEach(o => {
-                    html += ` 3  . ${o.order_id}  .  . ${o.customer_name}  .  . ${o.customer_phone}  .  . ${o.total_amount.toLocaleString()} ₽  .  . ${getStatusBadge(o.status)}  .  . ${o.created_at}  .  .
-                                <button class="view-btn" onclick="viewOrder(${o.order_id})">👁️ Детали</button>
-                                <button class="delete-btn" onclick="deleteOrder(${o.order_id})">🗑️</button>
-                             `;
-                });
-                
-                html += '</tbody> 扭';
-                document.getElementById('orders-table').innerHTML = html;
+                document.getElementById('customer-detail').innerHTML = `
+                    <div class="detail-card">
+                        <h2>👤 ${customer.full_name}</h2>
+                        <p><strong>📞 Телефон:</strong> ${customer.phone || '—'}</p>
+                        <p><strong>📧 Email:</strong> ${customer.email || '—'}</p>
+                        <p><strong>📍 Адрес:</strong> ${customer.address || '—'}</p>
+                        <p><strong>📱 Telegram:</strong> ${customer.telegram || '—'}</p>
+                        <p><strong>💬 WhatsApp:</strong> ${customer.whatsapp || '—'}</p>
+                        <p><strong>📅 Дата регистрации:</strong> ${customer.created_at || '—'}</p>
+                        <p><strong>🕒 Последний заказ:</strong> ${customer.last_order_date || '—'}</p>
+                        <hr>
+                        ${ordersHtml}
+                    </div>
+                `;
             } catch(e) {
-                document.getElementById('orders-table').innerHTML = '<p>❌ Ошибка загрузки заказов</p>';
+                document.getElementById('customer-detail').innerHTML = '<p>❌ Ошибка загрузки данных клиента</p>';
             }
-        }
-        
-        function viewOrder(id) { window.location.href = `/orders/${id}`; }
-        
-        function deleteOrder(id) {
-            if (!confirm('Удалить заказ?')) return;
-            fetch(`/api/orders/${id}`, { method: 'DELETE' })
-                .then(res => res.ok ? (alert('✅ Заказ удалён'), loadOrders()) : alert('❌ Ошибка'));
         }
         
         async function logout() {
@@ -115,7 +115,7 @@
             window.location.href = '/login';
         }
         
-        loadOrders();
+        loadCustomer();
     </script>
 </body>
 </html>
