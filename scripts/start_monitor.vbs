@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "powershell.exe -ExecutionPolicy Bypass -File ""C:\Users\PC\Yandex.Disk\Проекты\sales_bot\scripts\monitor_backoffice.ps1""", 0, False

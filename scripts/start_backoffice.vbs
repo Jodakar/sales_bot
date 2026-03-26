@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "C:\Users\PC\Yandex.Disk\Проекты\sales_bot\scripts\start_backoffice.bat", 0, False
