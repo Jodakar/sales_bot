@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Клиенты</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+        </div>
+        
+        <div class="card">
+            <h2>👥 Клиенты</h2>
+            <div id="customers-table">
+                <p>Загрузка...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    document.getElementById('userName').textContent = data.user.name;
+                }
+            });
+        
+        async function loadCustomers() {
+            try {
+                const response = await fetch('/api/customers/');
+                const customers = await response.json();
+                
+                if (customers.length === 0) {
+                    document.getElementById('customers-table').innerHTML = '<p>📭 Нет клиентов</p>';
+                    return;
+                }
+                
+                let html = ' <thead> 2<th>ID</th><th>Имя</th><th>Телефон</th><th>Email</th><th>Заказов</th> </thead> <tbody>';
+                
+                customers.forEach(c => {
+                    html += ` 3 <td>${c.customer_id}</td> <td>${c.full_name}</td> <td>${c.phone || '—'}</td> <td>${c.email || '—'}</td> <td>${c.orders_count || 0}</td>  `;
+                });
+                
+                html += '</tbody> 扭';
+                document.getElementById('customers-table').innerHTML = html;
+            } catch(e) {
+                document.getElementById('customers-table').innerHTML = '<p>❌ Ошибка загрузки клиентов</p>';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        loadCustomers();
+    </script>
+</body>
+</html>

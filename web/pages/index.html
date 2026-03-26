@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Главная</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+        </div>
+        
+        <div class="card">
+            <h2>Статистика</h2>
+            <div id="stats">
+                <p>Загрузка данных...</p>
+            </div>
+        </div>
+        
+        <div class="status">
+            ✅ Система работает | PostgreSQL: подключена
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    document.getElementById('userName').textContent = data.user.name;
+                }
+            });
+        
+        async function loadStats() {
+            try {
+                const productsRes = await fetch('/api/products/stats');
+                const products = await productsRes.json();
+                const ordersRes = await fetch('/api/orders/stats');
+                const orders = await ordersRes.json();
+                const customersRes = await fetch('/api/customers/stats');
+                const customers = await customersRes.json();
+                
+                document.getElementById('stats').innerHTML = `
+                    <p><strong>📦 Товаров:</strong> ${products.count}</p>
+                    <p><strong>📋 Заказов:</strong> ${orders.count}</p>
+                    <p><strong>💰 Выручка:</strong> ${(orders.total || 0).toLocaleString()} ₽</p>
+                    <p><strong>👥 Клиентов:</strong> ${customers.count}</p>
+                `;
+            } catch(e) {
+                document.getElementById('stats').innerHTML = '<p>❌ Ошибка загрузки данных</p>';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        loadStats();
+    </script>
+</body>
+</html>
