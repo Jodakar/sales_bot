@@ -107,7 +107,7 @@ def handle_help(vk, user_id):
         "🔧 *Техническая информация*\n"
         "• Синхронизация с 1С: каждые 30 минут\n"
         "• Бэкапы PostgreSQL: ежедневно в 2:00\n"
-        "• Все данные хранятся на флешке D:\\postgresql\\data\\\n\n"
+        "• Все данные хранятся на диске C:\\postgresql\\data\\\n\n"
         "По всем вопросам обращайтесь к разработчику."
     )
     send_message(vk, user_id, help_text, get_main_keyboard())
@@ -155,7 +155,7 @@ def main():
                     send_message(vk, user_id, "⛔ Доступ запрещён. Бот доступен только администратору.")
                     continue
                 
-                text = message.get('text', '').strip().lower()
+                text = message.get('text', '').strip()
                 logger.info(f"📨 Сообщение от {user_id}: {text}")
                 
                 # Обработка состояний (ожидание ввода от пользователя)
@@ -177,7 +177,7 @@ def main():
                         from bot.handlers.products import handle_update_price
                         current_product = user_states.get(f"{user_id}_product")
                         if current_product:
-                            handle_update_price(vk, user_id, current_product['id'], text)
+                            handle_update_price(vk, user_id, current_product['product_id'], text)
                         del user_states[user_id]
                         if f"{user_id}_product" in user_states:
                             del user_states[f"{user_id}_product"]
@@ -186,7 +186,7 @@ def main():
                         from bot.handlers.products import handle_update_stock
                         current_product = user_states.get(f"{user_id}_product")
                         if current_product:
-                            handle_update_stock(vk, user_id, current_product['id'], text)
+                            handle_update_stock(vk, user_id, current_product['product_id'], text)
                         del user_states[user_id]
                         if f"{user_id}_product" in user_states:
                             del user_states[f"{user_id}_product"]
@@ -206,6 +206,11 @@ def main():
                         handle_customer_detail(vk, user_id, text)
                         del user_states[user_id]
                     
+                    elif state == "new_order":
+                        from bot.handlers.orders import handle_new_order_step
+                        handle_new_order_step(vk, user_id, text)
+                        del user_states[user_id]
+                    
                     else:
                         # Неизвестное состояние
                         del user_states[user_id]
@@ -214,45 +219,51 @@ def main():
                     continue
                 
                 # Обработка команд
-                if text in ['начать', 'start', 'привет', 'старт', 'меню', 'главное меню']:
+                text_lower = text.lower()
+                if text_lower in ['начать', 'start', 'привет', 'старт', 'меню', 'главное меню']:
                     handle_start(vk, user_id)
-                elif text in ['помощь', 'help', 'ℹ️ помощь', '?']:
+                elif text_lower in ['помощь', 'help', 'ℹ️ помощь', '?']:
                     handle_help(vk, user_id)
-                elif text in ['🛒 новый заказ', 'новый заказ', 'заказ']:
+                elif text in ['🛒 Новый заказ', 'новый заказ', 'заказ']:
                     try:
                         from bot.handlers.orders import handle_new_order
                         handle_new_order(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Новый заказ' в разработке. Скоро будет доступна!", get_main_keyboard())
-                elif text in ['📦 заказы', 'заказы', 'список заказов']:
+                elif text in ['📦 Заказы', 'заказы', 'список заказов']:
                     try:
                         from bot.handlers.orders import handle_orders_list
                         handle_orders_list(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Заказы' в разработке. Скоро будет доступна!", get_main_keyboard())
-                elif text in ['📊 товары', 'товары', 'каталог']:
+                elif text in ['📊 Товары', 'товары', 'каталог']:
                     try:
                         from bot.handlers.products import handle_products_menu
                         handle_products_menu(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Товары' в разработке. Скоро будет доступна!", get_main_keyboard())
-                elif text in ['👥 клиенты', 'клиенты', 'покупатели']:
+                elif text in ['👥 Клиенты', 'клиенты', 'покупатели']:
                     try:
                         from bot.handlers.customers import handle_customers_list
                         handle_customers_list(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Клиенты' в разработке. Скоро будет доступна!", get_main_keyboard())
-                elif text in ['📁 отчеты', 'отчеты', 'выгрузки', 'excel']:
+                elif text in ['📁 Отчеты', 'отчеты', 'выгрузки', 'excel']:
                     try:
                         from bot.handlers.reports import handle_reports_menu
                         handle_reports_menu(vk, user_id)
                     except ImportError:
                         send_message(vk, user_id, "🔄 Функция 'Отчеты' в разработке. Скоро будет доступна!", get_main_keyboard())
                 elif text.isdigit():
-                    # Если ввели число — ищем заказ
-                    user_states[user_id] = "waiting_order_id"
-                    from bot.handlers.orders import handle_order_detail
-                    handle_order_detail(vk, user_id, text)
+                    # Если ввели число — ищем заказ ТОЛЬКО если не в режиме создания заказа
+                    # Проверяем, не находится ли пользователь в режиме создания заказа
+                    if user_id not in user_states:
+                        user_states[user_id] = "waiting_order_id"
+                        from bot.handlers.orders import handle_order_detail
+                        handle_order_detail(vk, user_id, text)
+                    else:
+                        # Если в режиме создания заказа — игнорируем поиск заказа
+                        handle_unknown(vk, user_id)
                 else:
                     handle_unknown(vk, user_id)
                     
