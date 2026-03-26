@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 # Импорт роутеров
-from web.routers import products, orders, customers, auth
+from web.routers import products, orders, customers, auth, yoomoney
 
 load_dotenv()
 
@@ -24,6 +24,7 @@ app.include_router(products.router, prefix="/api/products", tags=["Товары"
 app.include_router(orders.router, prefix="/api/orders", tags=["Заказы"])
 app.include_router(customers.router, prefix="/api/customers", tags=["Клиенты"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Авторизация"])
+app.include_router(yoomoney.router, prefix="/api/yoomoney", tags=["ЮMoney"])
 
 
 def read_page(filename: str) -> str:
