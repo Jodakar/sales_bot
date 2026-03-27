@@ -57,13 +57,13 @@ async def create_invoice(request: CreateInvoiceRequest):
                 raise HTTPException(status_code=404, detail="Заказ не найден")
 
             # Проверяем сумму
-            if request.amount != order[1]:
+            if request.amount != float(order[1]):
                 raise HTTPException(status_code=400, detail="Сумма не совпадает с суммой заказа")
 
             # Генерируем уникальный номер счёта
             invoice_number = f"INV-{request.order_id}-{int(time.time())}"
 
-            # Создаём запись в таблице invoices
+            # Создаём запись в таблице invoices (с created_at)
             cur.execute("""
                 INSERT INTO invoices (order_id, invoice_number, amount, status, created_at)
                 VALUES (%s, %s, %s, 'pending', CURRENT_TIMESTAMP)

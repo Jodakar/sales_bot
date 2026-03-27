@@ -6,105 +6,25 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .add-customer {
-            text-align: right;
-            margin-bottom: 20px;
-        }
-        .add-customer button {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .add-customer button:hover {
-            background: #219a52;
-        }
-        .view-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-        .view-btn:hover {
-            background: #2980b9;
-        }
-        .edit-btn {
-            background: #f39c12;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-        .edit-btn:hover {
-            background: #e67e22;
-        }
-        .delete-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .delete-btn:hover {
-            background: #c0392b;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background: #f5f5f5;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-        .modal-content {
-            background: white;
-            margin: 10% auto;
-            padding: 20px;
-            width: 500px;
-            border-radius: 10px;
-            position: relative;
-        }
-        .modal-content input {
-            width: 100%;
-            padding: 8px;
-            margin: 8px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .modal-content button {
-            margin-top: 10px;
-            margin-right: 10px;
-        }
-        .close {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            cursor: pointer;
-            font-size: 24px;
-        }
+        .search-section { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-section input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .search-section button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .add-customer { text-align: right; margin-bottom: 20px; }
+        .add-customer button { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .customers-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .customers-table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-weight: 600; }
+        .customers-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .customers-table tr:hover { background: #f9f9f9; }
+        .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
+        .edit-btn { background: #f39c12; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
+        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+        .nav-links a.active { background: #667eea; color: white; }
+        .table-container { overflow-x: auto; }
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 500px; border-radius: 10px; position: relative; }
+        .modal-content input { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .close { position: absolute; top: 10px; right: 20px; cursor: pointer; font-size: 24px; }
     </style>
 </head>
 <body>
@@ -124,7 +44,13 @@
             <a href="/">📊 Главная</a>
             <a href="/products">🛍️ Товары</a>
             <a href="/orders">📦 Заказы</a>
-            <a href="/customers">👥 Клиенты</a>
+            <a href="/customers" class="active">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
+        </div>
+        
+        <div class="search-section">
+            <input type="text" id="searchInput" placeholder="Поиск по имени, телефону, email...">
+            <button onclick="searchCustomers()">🔍 Найти</button>
         </div>
         
         <div class="add-customer">
@@ -133,25 +59,27 @@
         
         <div class="card">
             <h2>👥 Список клиентов</h2>
-            <div id="customers-table">
-                <p>Загрузка...</p>
+            <div class="table-container">
+                <div id="customers-table">
+                    <p>Загрузка...</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно добавления клиента -->
-    <div id="modal" class="modal">
+    <div id="addModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" onclick="closeAddModal()">&times;</span>
             <h3>Добавить клиента</h3>
-            <input type="text" id="full_name" placeholder="ФИО *">
-            <input type="text" id="phone" placeholder="Телефон">
-            <input type="email" id="email" placeholder="Email">
-            <input type="text" id="address" placeholder="Адрес">
-            <input type="text" id="telegram" placeholder="Telegram">
-            <input type="text" id="whatsapp" placeholder="WhatsApp">
+            <input type="text" id="add_full_name" placeholder="ФИО *">
+            <input type="text" id="add_phone" placeholder="Телефон">
+            <input type="email" id="add_email" placeholder="Email">
+            <input type="text" id="add_address" placeholder="Адрес">
+            <input type="text" id="add_telegram" placeholder="Telegram">
+            <input type="text" id="add_whatsapp" placeholder="WhatsApp">
             <button onclick="addCustomer()">Сохранить</button>
-            <button onclick="closeModal()">Отмена</button>
+            <button onclick="closeAddModal()">Отмена</button>
+            <div id="addError" class="error" style="color: red;"></div>
         </div>
     </div>
 
@@ -171,9 +99,11 @@
                 }
             });
         
-        async function loadCustomers() {
+        async function loadCustomers(query = '') {
             try {
-                const response = await fetch('/api/customers/');
+                let url = '/api/customers/';
+                if (query) url = `/api/customers/search?query=${encodeURIComponent(query)}`;
+                const response = await fetch(url);
                 const customers = await response.json();
                 
                 if (customers.length === 0) {
@@ -181,53 +111,64 @@
                     return;
                 }
                 
-                let html = ' <thead> 2<th>ID</th><th>ФИО</th><th>Телефон</th><th>Email</th><th>Заказов</th><th>Дата регистрации</th><th>Действия</th> </thead> <tbody>';
-                
-                customers.forEach(c => {
-                    html += ` 3 <td>${c.customer_id}  . <td style="font-weight: bold;">${c.full_name}  .  . ${c.phone || '—'}  .  . ${c.email || '—'}  .  . ${c.orders_count || 0}  .  . ${c.created_at || '—'}  .  .
-                                <button class="view-btn" onclick="viewCustomer(${c.customer_id})">👁️</button>
-                                <button class="edit-btn" onclick="editCustomer(${c.customer_id})">✏️</button>
-                                <button class="delete-btn" onclick="deleteCustomer(${c.customer_id})">🗑️</button>
-                             `;
-                });
-                
-                html += '</tbody> 扭';
+                let html = '<table class="customers-table"><thead> <th>ID</th><th>ФИО</th><th>Телефон</th><th>Email</th><th>Заказов</th><th>Действия</th> </thead><tbody>';
+                for (let i = 0; i < customers.length; i++) {
+                    const c = customers[i];
+                    html += ' 3 ';
+                    html += ' <td>' + c.customer_id + '  ';
+                    html += ' <td>' + c.full_name + '  ';
+                    html += ' <td>' + (c.phone || '—') + '  ';
+                    html += ' <td>' + (c.email || '—') + '  ';
+                    html += ' <td>' + (c.orders_count || 0) + '  ';
+                    html += ' <td><button class="view-btn" onclick="viewCustomer(' + c.customer_id + ')">👁️ Детали</button>';
+                    html += '<button class="edit-btn" onclick="editCustomer(' + c.customer_id + ')">✏️</button>';
+                    html += '<button class="delete-btn" onclick="deleteCustomer(' + c.customer_id + ')">🗑️</button></td>';
+                    html += '  ';
+                }
+                html += '</tbody> </div>';
                 document.getElementById('customers-table').innerHTML = html;
             } catch(e) {
                 document.getElementById('customers-table').innerHTML = '<p>❌ Ошибка загрузки клиентов</p>';
             }
         }
         
-        function showAddModal() {
-            document.getElementById('modal').style.display = 'block';
+        function searchCustomers() {
+            const query = document.getElementById('searchInput').value.trim();
+            loadCustomers(query);
         }
         
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('full_name').value = '';
-            document.getElementById('phone').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('address').value = '';
-            document.getElementById('telegram').value = '';
-            document.getElementById('whatsapp').value = '';
+        function viewCustomer(id) { window.location.href = `/customers/${id}`; }
+        function editCustomer(id) { window.location.href = `/customers/${id}`; }
+        
+        function deleteCustomer(id) {
+            if (!confirm('Удалить клиента? У него не должно быть заказов.')) return;
+            fetch(`/api/customers/${id}`, { method: 'DELETE' })
+                .then(res => res.ok ? (alert('✅ Клиент удалён'), loadCustomers()) : alert('❌ Ошибка удаления'));
+        }
+        
+        function showAddModal() { document.getElementById('addModal').style.display = 'block'; }
+        function closeAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+            document.getElementById('add_full_name').value = '';
+            document.getElementById('add_phone').value = '';
+            document.getElementById('add_email').value = '';
+            document.getElementById('add_address').value = '';
+            document.getElementById('add_telegram').value = '';
+            document.getElementById('add_whatsapp').value = '';
+            document.getElementById('addError').textContent = '';
         }
         
         async function addCustomer() {
-            const full_name = document.getElementById('full_name').value.trim();
-            if (!full_name) {
-                alert('Введите ФИО');
-                return;
-            }
-            
+            const full_name = document.getElementById('add_full_name').value.trim();
+            if (!full_name) { document.getElementById('addError').textContent = 'Введите ФИО'; return; }
             const customer = {
                 full_name: full_name,
-                phone: document.getElementById('phone').value || null,
-                email: document.getElementById('email').value || null,
-                address: document.getElementById('address').value || null,
-                telegram: document.getElementById('telegram').value || null,
-                whatsapp: document.getElementById('whatsapp').value || null
+                phone: document.getElementById('add_phone').value || null,
+                email: document.getElementById('add_email').value || null,
+                address: document.getElementById('add_address').value || null,
+                telegram: document.getElementById('add_telegram').value || null,
+                whatsapp: document.getElementById('add_whatsapp').value || null
             };
-            
             try {
                 const response = await fetch('/api/customers/', {
                     method: 'POST',
@@ -236,49 +177,13 @@
                 });
                 if (response.ok) {
                     alert('✅ Клиент добавлен');
-                    closeModal();
+                    closeAddModal();
                     loadCustomers();
                 } else {
-                    alert('❌ Ошибка добавления');
+                    const error = await response.json();
+                    document.getElementById('addError').textContent = error.detail || 'Ошибка добавления';
                 }
-            } catch(e) {
-                alert('❌ Ошибка');
-            }
-        }
-        
-        function viewCustomer(id) {
-            window.location.href = `/customers/${id}`;
-        }
-        
-        function editCustomer(id) {
-            const newName = prompt('Введите новое ФИО:');
-            if (!newName) return;
-            
-            fetch(`/api/customers/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ full_name: newName })
-            }).then(res => {
-                if (res.ok) {
-                    alert('✅ Клиент обновлён');
-                    loadCustomers();
-                } else {
-                    alert('❌ Ошибка обновления');
-                }
-            });
-        }
-        
-        function deleteCustomer(id) {
-            if (!confirm('Удалить клиента? У него не должно быть заказов.')) return;
-            fetch(`/api/customers/${id}`, { method: 'DELETE' })
-                .then(res => {
-                    if (res.ok) {
-                        alert('✅ Клиент удалён');
-                        loadCustomers();
-                    } else {
-                        alert('❌ Ошибка удаления');
-                    }
-                });
+            } catch(e) { document.getElementById('addError').textContent = 'Ошибка подключения к серверу'; }
         }
         
         async function logout() {

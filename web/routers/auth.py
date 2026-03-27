@@ -3,20 +3,17 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import secrets
 import hashlib
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from bot.utils.db import get_db_connection
 
 router = APIRouter()
 
 # Временное хранилище сессий (в памяти)
 # В реальном проекте нужно использовать БД или Redis
 sessions = {}
-
-# Данные пользователя (временные, потом перенесём в БД)
-USERS = {
-    "admin": {
-        "password": hashlib.sha256("admin123".encode()).hexdigest(),
-        "name": "Администратор"
-    }
-}
 
 
 class LoginData(BaseModel):
@@ -32,34 +29,66 @@ def hash_password(password: str) -> str:
 @router.post("/login")
 async def login(data: LoginData):
     """Вход в систему"""
-    user = USERS.get(data.username)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверное имя пользователя или пароль"
-        )
-    
-    if user["password"] != hash_password(data.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверное имя пользователя или пароль"
-        )
-    
-    # Создаём токен сессии
-    token = secrets.token_urlsafe(32)
-    sessions[token] = {
-        "username": data.username,
-        "name": user["name"]
-    }
-    
-    return {
-        "status": "success",
-        "token": token,
-        "user": {
-            "username": data.username,
-            "name": user["name"]
-        }
-    }
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT employee_id, full_name, role, password_hash, is_active 
+                FROM employees 
+                WHERE login = %s
+            """, (data.username,))
+            user = cur.fetchone()
+            
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Неверное имя пользователя или пароль"
+                )
+            
+            employee_id, full_name, role, password_hash, is_active = user
+            
+            # Проверка активности
+            if not is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Учётная запись заблокирована"
+                )
+            
+            # Проверка пароля
+            if password_hash != hash_password(data.password):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Неверное имя пользователя или пароль"
+                )
+            
+            # Обновляем last_login
+            cur.execute(
+                "UPDATE employees SET last_login = CURRENT_TIMESTAMP WHERE employee_id = %s",
+                (employee_id,)
+            )
+            conn.commit()
+            
+            # Создаём токен сессии
+            token = secrets.token_urlsafe(32)
+            sessions[token] = {
+                "employee_id": employee_id,
+                "username": data.username,
+                "name": full_name,
+                "role": role
+            }
+            
+            return {
+                "status": "success",
+                "token": token,
+                "user": {
+                    "employee_id": employee_id,
+                    "username": data.username,
+                    "name": full_name,
+                    "role": role
+                }
+            }
+    finally:
+        conn.close()
 
 
 @router.post("/logout")

@@ -2,67 +2,22 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Заказ #{{order_id}}</title>
+    <title>TimoFey — Заказ</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .detail-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .status-select {
-            padding: 8px;
-            border-radius: 5px;
-            margin-right: 10px;
-        }
-        .items-table {
-            width: 100%;
-            margin-top: 20px;
-            border-collapse: collapse;
-        }
-        .items-table th, .items-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        .items-table th {
-            background: #f5f5f5;
-        }
-        .back-btn {
-            background: #95a5a6;
-            margin-bottom: 20px;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            color: white;
-        }
-        .back-btn:hover {
-            background: #7f8c8d;
-        }
-        .status-paid {
-            background: #27ae60;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-        .status-not_paid {
-            background: #e74c3c;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-        .status-delivered {
-            background: #3498db;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
+        .detail-card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .status-select { padding: 8px; border-radius: 5px; margin-right: 10px; }
+        .items-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .items-table th { background: #f5f5f5; }
+        .back-btn { background: #95a5a6; margin-bottom: 20px; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+        .back-btn:hover { background: #7f8c8d; }
+        .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .pay-btn { background: #f39c12; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        .pay-btn:hover { background: #e67e22; }
     </style>
 </head>
 <body>
@@ -93,23 +48,14 @@
     </div>
 
     <script>
-        const order_id = {{order_id}};
+        const order_id = window.location.pathname.split('/').pop();
         const token = localStorage.getItem('token');
+        
         if (!token) {
             window.location.href = '/login';
         }
         
-        fetch(`/api/auth/check?token=${token}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data.authenticated) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = '/login';
-                } else {
-                    document.getElementById('userName').textContent = data.user.name;
-                }
-            });
+        let orderData = null;
         
         function getStatusBadge(status) {
             if (status === 'paid') return '<span class="status-paid">✅ Оплачен</span>';
@@ -121,53 +67,70 @@
         async function loadOrder() {
             try {
                 const response = await fetch(`/api/orders/${order_id}`);
-                const order = await response.json();
-                
-                let itemsHtml = '<h3>Товары в заказе</h3><table class="items-table"><thead> <th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th> </thead><tbody>';
-                if (order.items && order.items.length > 0) {
-                    order.items.forEach(item => {
-                        itemsHtml += ` <td>${item.product_name}</td> <td>${item.quantity} шт</td> <td>${item.price.toLocaleString()} ₽</td> <td>${item.total.toLocaleString()} ₽</td>  `;
-                    });
+                if (!response.ok) {
+                    throw new Error('Заказ не найден');
                 }
-                itemsHtml += '</tbody> 扭';
+                orderData = await response.json();
                 
-                let addressText = order.customer_address || '—';
-                let commentText = order.comment || '—';
-                let notPaidSelected = order.status === 'not_paid' ? 'selected' : '';
-                let paidSelected = order.status === 'paid' ? 'selected' : '';
-                let deliveredSelected = order.status === 'delivered' ? 'selected' : '';
+                // Формируем таблицу товаров
+                let itemsHtml = '<h3>Товары в заказе</h3><table class="items-table"><thead><tr><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>';
+                if (orderData.items && orderData.items.length > 0) {
+                    for (let i = 0; i < orderData.items.length; i++) {
+                        const item = orderData.items[i];
+                        const itemTotal = item.price * item.quantity;
+                        itemsHtml += '<tr>';
+                        itemsHtml += '<td>' + (item.product_name || '—') + '</td>';
+                        itemsHtml += '<td>' + (item.quantity || 0) + ' шт</td>';
+                        itemsHtml += '<td>' + (item.price ? item.price.toLocaleString() : '0') + ' ₽</td>';
+                        itemsHtml += '<td>' + (itemTotal.toLocaleString()) + ' ₽</td>';
+                        itemsHtml += '</tr>';
+                    }
+                } else {
+                    itemsHtml += '<tr><td colspan="4">Нет товаров</td></tr>';
+                }
+                itemsHtml += '</tbody></table>';
                 
-                document.getElementById('order-detail').innerHTML = `
+                const addressText = orderData.customer_address || '—';
+                const commentText = orderData.comment || '—';
+                const deliveryMethod = orderData.delivery_method || 'Курьер';
+                const notPaidSelected = orderData.status === 'not_paid' ? 'selected' : '';
+                const paidSelected = orderData.status === 'paid' ? 'selected' : '';
+                const deliveredSelected = orderData.status === 'delivered' ? 'selected' : '';
+                
+                const html = `
                     <div class="detail-card">
-                        <h2>📦 Заказ #${order.order_id}</h2>
-                        <p><strong>👤 Клиент:</strong> ${order.customer_name}</p>
-                        <p><strong>📞 Телефон:</strong> ${order.customer_phone}</p>
+                        <h2>📦 Заказ #${orderData.order_id}</h2>
+                        <p><strong>👤 Клиент:</strong> ${orderData.customer_name}</p>
+                        <p><strong>📞 Телефон:</strong> ${orderData.customer_phone}</p>
                         <p><strong>📍 Адрес:</strong> ${addressText}</p>
-                        <p><strong>🚚 Доставка:</strong> ${order.delivery_method}</p>
+                        <p><strong>🚚 Доставка:</strong> ${deliveryMethod}</p>
                         <p><strong>📝 Комментарий:</strong> ${commentText}</p>
-                        <p><strong>💰 Сумма:</strong> ${order.total_amount.toLocaleString()} ₽</p>
-                        <p><strong>📅 Дата:</strong> ${order.created_at}</p>
-                        <p><strong>📊 Статус:</strong> ${getStatusBadge(order.status)}</p>
+                        <p><strong>💰 Сумма:</strong> ${orderData.total_amount.toLocaleString()} ₽</p>
+                        <p><strong>📅 Дата:</strong> ${orderData.created_at}</p>
+                        <p><strong>📊 Статус:</strong> ${getStatusBadge(orderData.status)}</p>
                         <div style="margin-top: 15px;">
                             <select id="status-select" class="status-select">
                                 <option value="not_paid" ${notPaidSelected}>⏳ Не оплачен</option>
                                 <option value="paid" ${paidSelected}>✅ Оплачен</option>
                                 <option value="delivered" ${deliveredSelected}>🚚 Доставлен</option>
                             </select>
-                            <button onclick="updateStatus(${order.order_id})">Изменить статус</button>
+                            <button onclick="updateStatus()">Изменить статус</button>
+                            <button class="pay-btn" onclick="createInvoice()">💳 Оплатить</button>
                         </div>
                     </div>
                     ${itemsHtml}
                 `;
+                
+                document.getElementById('order-detail').innerHTML = html;
             } catch(e) {
-                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа</p>';
+                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа: ' + e.message + '</p>';
             }
         }
         
-        async function updateStatus(orderId) {
+        async function updateStatus() {
             const status = document.getElementById('status-select').value;
             try {
-                const response = await fetch(`/api/orders/${orderId}/status`, {
+                const response = await fetch(`/api/orders/${order_id}/status`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
@@ -179,7 +142,36 @@
                     alert('❌ Ошибка обновления');
                 }
             } catch(e) {
-                alert('❌ Ошибка');
+                alert('❌ Ошибка: ' + e.message);
+            }
+        }
+        
+        async function createInvoice() {
+            if (!orderData) {
+                alert('Данные заказа не загружены');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/yoomoney/create-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: parseInt(order_id),
+                        amount: orderData.total_amount
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    window.open(data.payment_url, '_blank');
+                    alert('Счёт создан! Оплатите в открывшемся окне');
+                } else {
+                    alert('Ошибка: ' + (data.detail || 'Неизвестная ошибка'));
+                }
+            } catch(e) {
+                alert('Ошибка: ' + e.message);
             }
         }
         
@@ -192,6 +184,19 @@
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
+        
+        // Проверка авторизации
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    document.getElementById('userName').textContent = data.user.name;
+                }
+            });
         
         loadOrder();
     </script>

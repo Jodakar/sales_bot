@@ -6,55 +6,37 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .add-product {
+        .import-section {
             text-align: right;
             margin-bottom: 20px;
         }
-        .add-product button {
+        .import-btn {
             background: #27ae60;
             color: white;
             border: none;
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
+            font-size: 14px;
         }
-        .add-product button:hover {
+        .import-btn:hover:not(:disabled) {
             background: #219a52;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .import-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background: #f5f5f5;
-        }
-        .edit-btn {
-            background: #f39c12;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-        .edit-btn:hover {
-            background: #e67e22;
-        }
-        .delete-btn {
-            background: #e74c3c;
+        .view-btn {
+            background: #3498db;
             color: white;
             border: none;
             padding: 5px 10px;
             border-radius: 3px;
             cursor: pointer;
         }
-        .delete-btn:hover {
-            background: #c0392b;
+        .view-btn:hover {
+            background: #2980b9;
         }
     </style>
 </head>
@@ -73,40 +55,68 @@
         
         <div class="nav-links">
             <a href="/">📊 Главная</a>
-            <a href="/products">🛍️ Товары</a>
+            <a href="/products" class="active">🛍️ Товары</a>
             <a href="/orders">📦 Заказы</a>
             <a href="/customers">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
         </div>
         
-        <div class="add-product">
-            <button onclick="showAddForm()">➕ Добавить товар</button>
+        <div class="import-section">
+            <button id="importBtn" class="import-btn" disabled>📂 Импорт из Excel</button>
         </div>
         
         <div class="card">
             <h2>📦 Каталог товаров</h2>
-            <div id="products-table">
-                <p>Загрузка...</p>
+            <div class="table-container">
+                <div id="products-table">
+                    <p>Загрузка...</p>
+                </div>
             </div>
         </div>
     </div>
 
+    <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;">
+
     <script>
         const token = localStorage.getItem('token');
+        let currentUser = null;
+        
         if (!token) {
             window.location.href = '/login';
         }
         
-        fetch(`/api/auth/check?token=${token}`)
-            .then(res => res.json())
-            .then(data => {
+        async function checkAuthAndPermissions() {
+            try {
+                const response = await fetch(`/api/auth/check?token=${token}`);
+                const data = await response.json();
+                
                 if (!data.authenticated) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     window.location.href = '/login';
-                } else {
-                    document.getElementById('userName').textContent = data.user.name;
+                    return false;
                 }
-            });
+                
+                currentUser = data.user;
+                document.getElementById('userName').textContent = data.user.name;
+                
+                const hasImportRights = data.user.name === 'Администратор' || data.user.role === 'dev' || data.user.role === 'admin';
+                const importBtn = document.getElementById('importBtn');
+                
+                if (hasImportRights) {
+                    importBtn.disabled = false;
+                    importBtn.title = 'Загрузить товары из Excel-файла';
+                } else {
+                    importBtn.disabled = true;
+                    importBtn.title = 'У вас нет прав на импорт товаров';
+                }
+                
+                return true;
+            } catch(e) {
+                console.error('Ошибка проверки авторизации:', e);
+                return false;
+            }
+        }
         
         async function loadProducts() {
             try {
@@ -119,90 +129,82 @@
                 }
                 
                 let html = '<table>';
-                html += '<thead><tr>';
-                html += '<th>ID</th>';
-                html += '<th>Артикул</th>';
-                html += '<th>Название</th>';
-                html += '<th>Цена</th>';
-                html += '<th>Остаток</th>';
-                html += '<th>Действия</th>';
-                html += '</tr></thead><tbody>';
+                html += '<thead> <th>ID</th><th>Артикул</th><th>Название</th><th>Цена</th><th>Остаток</th><th>Действия</th> </thead><tbody>';
                 
-                products.forEach(p => {
-                    html += '<tr>';
-                    html += `<td>${p.product_id}</td>`;
-                    html += `<td>${p.article || '—'}</td>`;
-                    html += `<td>${p.name}</td>`;
-                    html += `<td>${p.price.toLocaleString()} ₽</td>`;
-                    html += `<td>${p.stock} шт</td>`;
-                    html += `<td>
-                                <button class="edit-btn" onclick="editProduct(${p.product_id})">✏️</button>
-                                <button class="delete-btn" onclick="deleteProduct(${p.product_id})">🗑️</button>
-                            </td>`;
-                    html += '</tr>';
-                });
+                for (let i = 0; i < products.length; i++) {
+                    const p = products[i];
+                    html += ' 3 ';
+                    html += ' <td>' + p.product_id + '  ';
+                    html += ' <td>' + (p.article || '—') + '  ';
+                    html += ' <td>' + p.name + '  ';
+                    html += ' <td>' + p.price.toLocaleString() + ' ₽  ';
+                    html += ' <td>' + p.stock + ' шт  ';
+                    html += ' <td><button class="view-btn" onclick="viewProduct(' + p.product_id + ')">👁️ Детали</button>  ';
+                    html += '  ';
+                }
                 
-                html += '</tbody></table>';
+                html += '</tbody>  </div>';
                 document.getElementById('products-table').innerHTML = html;
             } catch(e) {
                 document.getElementById('products-table').innerHTML = '<p>❌ Ошибка загрузки товаров</p>';
             }
         }
         
-        function showAddForm() {
-            const name = prompt('Введите название товара:');
-            if (!name) return;
-            const price = parseFloat(prompt('Введите цену (руб):'));
-            if (isNaN(price)) return;
-            const stock = parseInt(prompt('Введите остаток (шт):'));
-            if (isNaN(stock)) return;
-            
-            fetch('/api/products/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, price, stock })
-            }).then(res => {
-                if (res.ok) {
-                    alert('✅ Товар добавлен');
-                    loadProducts();
-                } else {
-                    alert('❌ Ошибка добавления');
-                }
-            });
+        function viewProduct(id) {
+            window.location.href = `/products/${id}`;
         }
         
-        function editProduct(id) {
-            const price = prompt('Введите новую цену:');
-            if (price === null) return;
-            const stock = prompt('Введите новый остаток:');
-            if (stock === null) return;
+        async function importExcel(file) {
+            const formData = new FormData();
+            formData.append('file', file);
             
-            fetch(`/api/products/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ price: parseFloat(price), stock: parseInt(stock) })
-            }).then(res => {
-                if (res.ok) {
-                    alert('✅ Товар обновлён');
-                    loadProducts();
-                } else {
-                    alert('❌ Ошибка обновления');
-                }
-            });
-        }
-        
-        function deleteProduct(id) {
-            if (!confirm('Удалить товар?')) return;
-            fetch(`/api/products/${id}`, { method: 'DELETE' })
-                .then(res => {
-                    if (res.ok) {
-                        alert('✅ Товар удалён');
-                        loadProducts();
-                    } else {
-                        alert('❌ Ошибка удаления');
-                    }
+            try {
+                const response = await fetch('/api/products/import-excel', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
                 });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Импорт завершён успешно!\n\n' + 
+                          'Добавлено: ' + (result.added || 0) + ' товаров\n' +
+                          'Обновлено: ' + (result.updated || 0) + ' товаров\n' +
+                          'Ошибок: ' + (result.errors || 0));
+                    loadProducts();
+                } else {
+                    let errorMsg = '❌ Ошибка импорта:\n' + (result.detail || 'Неизвестная ошибка');
+                    if (result.errors_list && result.errors_list.length) {
+                        errorMsg += '\n\nДетали:\n' + result.errors_list.join('\n');
+                    }
+                    alert(errorMsg);
+                }
+            } catch(e) {
+                alert('❌ Ошибка подключения к серверу\n\nПроверьте:\n1. Сервер запущен\n2. Интернет-соединение');
+            }
         }
+        
+        document.getElementById('importBtn').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+        
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'xlsx' && ext !== 'xls') {
+                alert('❌ Неверный формат файла\n\nПоддерживаемые форматы: .xlsx, .xls');
+                e.target.value = '';
+                return;
+            }
+            
+            importExcel(file);
+            e.target.value = '';
+        });
         
         async function logout() {
             const token = localStorage.getItem('token');
@@ -214,7 +216,9 @@
             window.location.href = '/login';
         }
         
-        loadProducts();
+        checkAuthAndPermissions().then(() => {
+            loadProducts();
+        });
     </script>
 </body>
 </html>

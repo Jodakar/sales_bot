@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Сотрудник</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .detail-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+        }
+        .detail-item strong {
+            color: #333;
+            min-width: 140px;
+            display: inline-block;
+        }
+        .role-dev {
+            background: #9b59b6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .role-admin {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .role-manager {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .active-badge {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .inactive-badge {
+            background: #95a5a6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+            <a href="/employees" class="active">👤 Сотрудники</a>
+        </div>
+        
+        <button class="back-btn" onclick="window.location.href='/employees'">← Назад к сотрудникам</button>
+        
+        <div id="employee-detail">
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <script>
+        const employee_id = window.location.pathname.split('/').pop();
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        async function getCurrentUser() {
+            try {
+                const response = await fetch(`/api/auth/check?token=${token}`);
+                const data = await response.json();
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    return null;
+                }
+                currentUser = data.user;
+                document.getElementById('userName').textContent = data.user.name;
+                return data.user;
+            } catch(e) {
+                return null;
+            }
+        }
+        
+        function getRoleBadge(role) {
+            if (role === 'dev') return '<span class="role-dev">Разработчик</span>';
+            if (role === 'admin') return '<span class="role-admin">Администратор</span>';
+            return '<span class="role-manager">Менеджер</span>';
+        }
+        
+        function getStatusBadge(isActive) {
+            if (isActive) return '<span class="active-badge">Активен</span>';
+            return '<span class="inactive-badge">Неактивен</span>';
+        }
+        
+        async function loadEmployee() {
+            try {
+                const response = await fetch(`/api/employees/${employee_id}`);
+                if (!response.ok) throw new Error('Сотрудник не найден');
+                const employee = await response.json();
+                
+                const html = `
+                    <div class="detail-card">
+                        <h2>👤 ${employee.full_name}</h2>
+                        <div class="detail-grid">
+                            <div class="detail-item"><strong>Email:</strong> ${employee.email}</div>
+                            <div class="detail-item"><strong>Телефон:</strong> ${employee.phone || '—'}</div>
+                            <div class="detail-item"><strong>Дата рождения:</strong> ${employee.birth_date || '—'}</div>
+                            <div class="detail-item"><strong>Роль:</strong> ${getRoleBadge(employee.role)}</div>
+                            <div class="detail-item"><strong>Статус:</strong> ${getStatusBadge(employee.is_active)}</div>
+                            <div class="detail-item"><strong>Дата регистрации:</strong> ${employee.created_at || '—'}</div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('employee-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('employee-detail').innerHTML = '<p>❌ Ошибка загрузки данных сотрудника</p>';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        getCurrentUser().then(() => {
+            loadEmployee();
+        });
+    </script>
+</body>
+</html>

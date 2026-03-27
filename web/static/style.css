@@ -90,10 +90,15 @@ body {
     color: white;
 }
 
+.nav-links a.active {
+    background: #667eea;
+    color: white;
+}
+
 .card {
     background: white;
-    padding: 20px;
     border-radius: 10px;
+    padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
@@ -106,24 +111,26 @@ body {
     text-align: center;
 }
 
+/* Общие стили для таблиц */
 table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 14px;
 }
-
 th, td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid #ddd;
 }
-
 th {
     background: #f5f5f5;
-    color: #333;
+    font-weight: 600;
 }
-
 tr:hover {
     background: #f9f9f9;
+}
+.table-container {
+    overflow-x: auto;
 }
 
 button {

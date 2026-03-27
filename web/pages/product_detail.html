@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Товар</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .detail-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .history-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+        }
+        .detail-item strong {
+            color: #333;
+            min-width: 140px;
+            display: inline-block;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .history-table th, .history-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-table th {
+            background: #f5f5f5;
+        }
+        .action-import { color: #27ae60; }
+        .action-update { color: #f39c12; }
+        .action-sale { color: #e74c3c; }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products" class="active">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+        </div>
+        
+        <button class="back-btn" onclick="window.location.href='/products'">← Назад к товарам</button>
+        
+        <div id="product-detail">
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <script>
+        const pathParts = window.location.pathname.split('/');
+        const product_id = pathParts[pathParts.length - 1];
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    document.getElementById('userName').textContent = data.user.name;
+                }
+            });
+        
+        async function loadProduct() {
+            try {
+                const response = await fetch(`/api/products/${product_id}`);
+                if (!response.ok) throw new Error('Товар не найден');
+                const product = await response.json();
+                
+                // Формируем дополнительные поля
+                let extraFieldsHtml = '';
+                
+                const extraFields = [
+                    { label: 'Артикул', value: product.article },
+                    { label: 'Производитель', value: product.manufacturer },
+                    { label: 'Поставщик', value: product.supplier },
+                    { label: 'Цена закупки', value: product.purchase_price ? product.purchase_price.toLocaleString() + ' ₽' : null },
+                    { label: 'Резерв', value: product.reserved_stock ? product.reserved_stock + ' шт' : null },
+                    { label: 'Категория', value: product.category },
+                    { label: 'Вес', value: product.weight ? product.weight + ' кг' : null },
+                    { label: 'Габариты', value: product.dimensions },
+                    { label: 'Описание', value: product.description }
+                ];
+                
+                for (let i = 0; i < extraFields.length; i++) {
+                    const f = extraFields[i];
+                    if (f.value && f.value !== 'null' && f.value !== '') {
+                        extraFieldsHtml += `
+                            <div class="detail-item">
+                                <strong>${f.label}:</strong> ${f.value}
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Блок с дополнительной информацией (только если есть)
+                let extraBlock = '';
+                if (extraFieldsHtml) {
+                    extraBlock = `
+                        <div class="detail-card" style="margin-top: 20px;">
+                            <h3>📋 Дополнительная информация</h3>
+                            <div class="detail-grid">
+                                ${extraFieldsHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Загружаем историю
+                const historyResponse = await fetch(`/api/products/${product_id}/history`);
+                let historyHtml = '<div class="history-card"><h3>📜 История движения</h3>';
+                
+                if (historyResponse.ok) {
+                    const history = await historyResponse.json();
+                    if (history.length === 0) {
+                        historyHtml += '<p>История пуста</p>';
+                    } else {
+                        historyHtml += '<table class="history-table"><thead><tr><th>Дата</th><th>Тип</th><th>Кто</th><th>Изменения</th><th>Кол-во</th></tr></thead><tbody>';
+                        for (let i = 0; i < history.length; i++) {
+                            const h = history[i];
+                            let actionClass = '';
+                            let actionText = '';
+                            if (h.action_type === 'import') { actionClass = 'action-import'; actionText = '📥 Импорт'; }
+                            else if (h.action_type === 'update') { actionClass = 'action-update'; actionText = '✏️ Обновление'; }
+                            else if (h.action_type === 'sale') { actionClass = 'action-sale'; actionText = '💰 Продажа'; }
+                            
+                            let changes = [];
+                            if (h.old_price !== h.new_price && h.new_price !== null) changes.push(`цена: ${h.old_price} → ${h.new_price}`);
+                            if (h.old_stock !== h.new_stock && h.new_stock !== null) changes.push(`остаток: ${h.old_stock} → ${h.new_stock}`);
+                            if (h.old_article !== h.new_article && h.new_article !== null) changes.push(`артикул: ${h.old_article} → ${h.new_article}`);
+                            if (changes.length === 0) changes.push('нет изменений');
+                            
+                            historyHtml += `<tr>
+                                <td>${h.created_at || '—'}</td>
+                                <td class="${actionClass}">${actionText}</td>
+                                <td>${h.changed_by || '—'}</td>
+                                <td>${changes.join(', ')}</td>
+                                <td>${h.quantity_sold ? h.quantity_sold + ' шт' : '—'}</td>
+                            </tr>`;
+                        }
+                        historyHtml += '</tbody></table>';
+                    }
+                } else {
+                    historyHtml += '<p>❌ Ошибка загрузки истории</p>';
+                }
+                historyHtml += '</div>';
+                
+                const html = `
+                    <div class="detail-card">
+                        <h2>🛍️ ${product.name}</h2>
+                        <div class="detail-grid">
+                            <div class="detail-item"><strong>Цена:</strong> ${product.price.toLocaleString()} ₽</div>
+                            <div class="detail-item"><strong>Остаток:</strong> ${product.stock} шт</div>
+                        </div>
+                    </div>
+                    ${extraBlock}
+                    ${historyHtml}
+                `;
+                
+                document.getElementById('product-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('product-detail').innerHTML = '<p>❌ Ошибка загрузки товара</p>';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        loadProduct();
+    </script>
+</body>
+</html>

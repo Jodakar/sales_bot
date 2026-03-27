@@ -9,13 +9,20 @@
         .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
+        .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
         .view-btn:hover { background: #2980b9; }
-        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
-        .delete-btn:hover { background: #c0392b; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f5f5f5; }
+        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 5px; }
+        .delete-btn:hover:not(:disabled) { background: #c0392b; }
+        .delete-btn:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.5; }
+        .orders-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .orders-table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-weight: 600; }
+        .orders-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .orders-table tr:hover { background: #f9f9f9; }
+        .nav-links a.active { background: #667eea; color: white; }
+        .table-container { overflow-x: auto; }
+        .create-order-btn { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
+        .create-order-btn:hover { background: #219a52; }
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -34,18 +41,21 @@
         <div class="nav-links">
             <a href="/">📊 Главная</a>
             <a href="/products">🛍️ Товары</a>
-            <a href="/orders">📦 Заказы</a>
+            <a href="/orders" class="active">📦 Заказы</a>
             <a href="/customers">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
         </div>
         
         <div style="text-align: right; margin-bottom: 20px;">
-            <a href="/orders/create" style="background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">➕ Создать заказ</a>
+            <a href="/orders/create" class="create-order-btn">➕ Создать заказ</a>
         </div>
         
         <div class="card">
             <h2>📋 Список заказов</h2>
-            <div id="orders-table">
-                <p>Загрузка...</p>
+            <div class="table-container">
+                <div id="orders-table">
+                    <p>Загрузка...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -73,6 +83,13 @@
             return status;
         }
         
+        function parseDateFromString(dateStr) {
+            if (!dateStr) return null;
+            const parts = dateStr.split(' ')[0].split('.');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+            return null;
+        }
+        
         async function loadOrders() {
             try {
                 const response = await fetch('/api/orders/');
@@ -83,16 +100,41 @@
                     return;
                 }
                 
-                let html = ' <thead> 2<th>№</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Статус</th><th>Дата</th><th>Действия</th> </thead> <tbody>';
+                let html = '<table class="orders-table">';
+                html += '<thead> <th>№</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Статус</th><th>Дата</th><th>Действия</th> </thead><tbody>';
                 
-                orders.forEach(o => {
-                    html += ` 3  . ${o.order_id}  .  . ${o.customer_name}  .  . ${o.customer_phone}  .  . ${o.total_amount.toLocaleString()} ₽  .  . ${getStatusBadge(o.status)}  .  . ${o.created_at}  .  .
-                                <button class="view-btn" onclick="viewOrder(${o.order_id})">👁️ Детали</button>
-                                <button class="delete-btn" onclick="deleteOrder(${o.order_id})">🗑️</button>
-                             `;
-                });
+                const today = new Date();
                 
-                html += '</tbody> 扭';
+                for (let i = 0; i < orders.length; i++) {
+                    const o = orders[i];
+                    
+                    let canDelete = false;
+                    if (o.status === 'not_paid' && o.created_at) {
+                        const orderDate = parseDateFromString(o.created_at);
+                        if (orderDate) {
+                            const daysDiff = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
+                            canDelete = daysDiff >= 30;
+                        }
+                    }
+                    
+                    html += ' 3 ';
+                    html += ' <td style="padding:12px;">' + o.order_id + '  ';
+                    html += ' <td style="padding:12px;">' + (o.customer_name || '—') + '  ';
+                    html += ' <td style="padding:12px;">' + (o.customer_phone || '—') + '  ';
+                    html += ' <td style="padding:12px;">' + (o.total_amount ? o.total_amount.toLocaleString() : '0') + ' ₽  ';
+                    html += ' <td style="padding:12px;">' + getStatusBadge(o.status) + '  ';
+                    html += ' <td style="padding:12px;">' + (o.created_at || '—') + '  ';
+                    html += ' <td style="padding:12px;"><button class="view-btn" onclick="viewOrder(' + o.order_id + ')">👁️ Детали</button>';
+                    if (canDelete) {
+                        html += '<button class="delete-btn" onclick="deleteOrder(' + o.order_id + ')">🗑️</button>';
+                    } else {
+                        html += '<button class="delete-btn" disabled>🗑️</button>';
+                    }
+                    html += '  ';
+                    html += '  ';
+                }
+                
+                html += '</tbody>  </div>';
                 document.getElementById('orders-table').innerHTML = html;
             } catch(e) {
                 document.getElementById('orders-table').innerHTML = '<p>❌ Ошибка загрузки заказов</p>';
@@ -102,9 +144,10 @@
         function viewOrder(id) { window.location.href = `/orders/${id}`; }
         
         function deleteOrder(id) {
-            if (!confirm('Удалить заказ?')) return;
-            fetch(`/api/orders/${id}`, { method: 'DELETE' })
-                .then(res => res.ok ? (alert('✅ Заказ удалён'), loadOrders()) : alert('❌ Ошибка'));
+            if (confirm('Удалить заказ? Это действие нельзя отменить.')) {
+                fetch(`/api/orders/${id}`, { method: 'DELETE' })
+                    .then(res => res.ok ? (alert('✅ Заказ удалён'), loadOrders()) : alert('❌ Ошибка удаления'));
+            }
         }
         
         async function logout() {

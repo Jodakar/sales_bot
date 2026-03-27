@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Сотрудники</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .add-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .add-btn:hover {
+            background: #219a52;
+        }
+        .view-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .view-btn:hover {
+            background: #2980b9;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+        .role-dev {
+            background: #9b59b6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .role-admin {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .role-manager {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .active-badge {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .inactive-badge {
+            background: #95a5a6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-content input, .modal-content select {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .modal-content label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .modal-content .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .modal-content .checkbox input {
+            width: auto;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-section input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .search-section button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-section button:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+            <a href="/employees" class="active">👤 Сотрудники</a>
+        </div>
+        
+        <div class="search-section">
+            <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону..." onkeyup="searchEmployees()">
+            <button onclick="searchEmployees()">🔍 Найти</button>
+        </div>
+        
+        <button class="add-btn" onclick="showAddModal()">➕ Добавить сотрудника</button>
+        
+        <div class="card">
+            <h2>👥 Список сотрудников</h2>
+            <div class="table-container">
+                <div id="employees-table">
+                    <p>Загрузка...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно добавления сотрудника -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddModal()">&times;</span>
+            <h3>Добавить сотрудника</h3>
+            <label>ФИО *</label>
+            <input type="text" id="add_full_name">
+            <label>Email *</label>
+            <input type="email" id="add_email">
+            <label>Телефон</label>
+            <input type="text" id="add_phone">
+            <label>Дата рождения</label>
+            <input type="date" id="add_birth_date">
+            <label>Логин *</label>
+            <input type="text" id="add_login">
+            <label>Пароль *</label>
+            <input type="password" id="add_password">
+            <label>Роль</label>
+            <select id="add_role">
+                <option value="manager">Менеджер</option>
+                <option value="admin">Администратор</option>
+                <option value="dev">Разработчик</option>
+            </select>
+            <div class="checkbox">
+                <input type="checkbox" id="add_can_upload_excel">
+                <label>Разрешить загрузку Excel</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="add_can_edit_company_details">
+                <label>Разрешить редактировать реквизиты</label>
+            </div>
+            <button onclick="addEmployee()" style="margin-top: 20px;">Сохранить</button>
+            <div id="addError" class="error"></div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        async function getCurrentUser() {
+            try {
+                const response = await fetch(`/api/auth/check?token=${token}`);
+                const data = await response.json();
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    return null;
+                }
+                currentUser = data.user;
+                document.getElementById('userName').textContent = data.user.name;
+                return data.user;
+            } catch(e) {
+                return null;
+            }
+        }
+        
+        function getRoleBadge(role) {
+            if (role === 'dev') return '<span class="role-dev">Разработчик</span>';
+            if (role === 'admin') return '<span class="role-admin">Администратор</span>';
+            return '<span class="role-manager">Менеджер</span>';
+        }
+        
+        function getStatusBadge(isActive) {
+            if (isActive) return '<span class="active-badge">Активен</span>';
+            return '<span class="inactive-badge">Неактивен</span>';
+        }
+        
+        async function loadEmployees(query = '') {
+            try {
+                let url = '/api/employees/';
+                if (query && query.trim() !== '') {
+                    url = `/api/employees/search?query=${encodeURIComponent(query)}`;
+                }
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const employees = await response.json();
+                
+                if (employees.length === 0) {
+                    document.getElementById('employees-table').innerHTML = '<p>📭 Нет сотрудников</p>';
+                    return;
+                }
+                
+                let html = ' <thead> <th>ID</th><th>ФИО</th><th>Email</th><th>Телефон</th><th>Роль</th><th>Статус</th><th>Действия</th> </thead><tbody>';
+                
+                for (let i = 0; i < employees.length; i++) {
+                    const e = employees[i];
+                    html += ' 3 ';
+                    html += '  Whether' + e.employee_id + '  ';
+                    html += '  Whether' + e.full_name + '  ';
+                    html += '  Whether' + e.email + '  ';
+                    html += '  Whether' + (e.phone || '—') + '  ';
+                    html += '  Whether' + getRoleBadge(e.role) + '  ';
+                    html += '  Whether' + getStatusBadge(e.is_active) + '  ';
+                    html += '  Whether';
+                    html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
+                    if (currentUser && currentUser.role === 'dev') {
+                        html += '<button class="edit-btn" onclick="editEmployee(' + e.employee_id + ')">✏️</button>';
+                        if (currentUser.employee_id !== e.employee_id) {
+                            html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
+                        }
+                    }
+                    html += '  ';
+                    html += '  ';
+                }
+                
+                html += '</tbody>  </div>';
+                document.getElementById('employees-table').innerHTML = html;
+            } catch(e) {
+                document.getElementById('employees-table').innerHTML = '<p>❌ Ошибка загрузки сотрудников: ' + e.message + '</p>';
+            }
+        }
+        
+        function searchEmployees() {
+            const query = document.getElementById('searchInput').value.trim();
+            loadEmployees(query);
+        }
+        
+        function viewEmployee(id) {
+            window.location.href = `/employees/${id}`;
+        }
+        
+        function editEmployee(id) {
+            window.location.href = `/employees/${id}/edit`;
+        }
+        
+        async function deleteEmployee(id) {
+            if (!confirm('Удалить сотрудника?')) return;
+            try {
+                const response = await fetch(`/api/employees/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert('✅ Сотрудник удалён');
+                    loadEmployees();
+                } else {
+                    alert('❌ Ошибка удаления');
+                }
+            } catch(e) {
+                alert('❌ Ошибка');
+            }
+        }
+        
+        function showAddModal() {
+            if (currentUser && currentUser.role !== 'dev') {
+                alert('Только разработчик может добавлять сотрудников');
+                return;
+            }
+            document.getElementById('addModal').style.display = 'block';
+        }
+        
+        function closeAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+            document.getElementById('add_full_name').value = '';
+            document.getElementById('add_email').value = '';
+            document.getElementById('add_phone').value = '';
+            document.getElementById('add_birth_date').value = '';
+            document.getElementById('add_login').value = '';
+            document.getElementById('add_password').value = '';
+            document.getElementById('add_role').value = 'manager';
+            document.getElementById('add_can_upload_excel').checked = false;
+            document.getElementById('add_can_edit_company_details').checked = false;
+            document.getElementById('addError').textContent = '';
+        }
+        
+        async function addEmployee() {
+            const full_name = document.getElementById('add_full_name').value.trim();
+            const email = document.getElementById('add_email').value.trim();
+            const login = document.getElementById('add_login').value.trim();
+            const password = document.getElementById('add_password').value;
+            
+            if (!full_name || !email || !login || !password) {
+                document.getElementById('addError').textContent = 'Заполните все обязательные поля';
+                return;
+            }
+            
+            const employee = {
+                full_name: full_name,
+                email: email,
+                phone: document.getElementById('add_phone').value || null,
+                birth_date: document.getElementById('add_birth_date').value || null,
+                login: login,
+                password: password,
+                role: document.getElementById('add_role').value,
+                can_upload_excel: document.getElementById('add_can_upload_excel').checked,
+                can_edit_company_details: document.getElementById('add_can_edit_company_details').checked
+            };
+            
+            try {
+                const response = await fetch('/api/employees/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(employee)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Сотрудник добавлен');
+                    closeAddModal();
+                    loadEmployees();
+                } else {
+                    const error = await response.json();
+                    document.getElementById('addError').textContent = error.detail || 'Ошибка добавления';
+                }
+            } catch(e) {
+                document.getElementById('addError').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        getCurrentUser().then(() => {
+            loadEmployees();
+        });
+    </script>
+</body>
+</html>

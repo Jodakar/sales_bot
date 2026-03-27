@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Редактирование сотрудника</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .edit-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .save-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .save-btn:hover {
+            background: #219a52;
+        }
+        .cancel-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .cancel-btn:hover {
+            background: #7f8c8d;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        .disabled-field {
+            background: #f5f5f5;
+            color: #999;
+        }
+        .readonly-badge {
+            background: #f0f0f0;
+            color: #666;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .password-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .password-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .password-btn:hover {
+            background: #2980b9;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 20px;
+            width: 400px;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+            <a href="/employees" class="active">👤 Сотрудники</a>
+        </div>
+        
+        <button class="back-btn" onclick="window.location.href='/employees'">← Назад к сотрудникам</button>
+        
+        <div class="edit-card">
+            <h2>✏️ Редактирование сотрудника</h2>
+            <div id="edit-form">
+                <p>Загрузка...</p>
+            </div>
+            <div class="password-section" id="password-section" style="display: none;">
+                <button class="password-btn" onclick="showPasswordModal()">🔑 Сменить пароль</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно смены пароля -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePasswordModal()">&times;</span>
+            <h3>Смена пароля</h3>
+            <label>Новый пароль</label>
+            <input type="password" id="new_password">
+            <label>Подтверждение пароля</label>
+            <input type="password" id="confirm_password">
+            <button onclick="changePassword()" style="margin-top: 20px;">Сохранить</button>
+            <div id="passwordError" class="error"></div>
+        </div>
+    </div>
+
+    <script>
+        const employee_id = window.location.pathname.split('/')[2];
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+        let employeeData = null;
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        async function getCurrentUser() {
+            try {
+                const response = await fetch(`/api/auth/check?token=${token}`);
+                const data = await response.json();
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    return null;
+                }
+                currentUser = data.user;
+                document.getElementById('userName').textContent = data.user.name;
+                return data.user;
+            } catch(e) {
+                return null;
+            }
+        }
+        
+        async function loadEmployee() {
+            try {
+                const response = await fetch(`/api/employees/${employee_id}`);
+                if (!response.ok) throw new Error('Сотрудник не найден');
+                employeeData = await response.json();
+                
+                const isDev = currentUser && currentUser.role === 'dev';
+                const isAdmin = currentUser && currentUser.role === 'admin';
+                const isSelf = currentUser && currentUser.employee_id == employee_id;
+                const isManager = employeeData.role === 'manager';
+                
+                // Определяем доступные поля
+                let canEditPhone = isDev || (isAdmin && (isSelf || isManager)) || (isSelf && !isAdmin);
+                let canEditEmail = isDev || (isAdmin && (isSelf || isManager)) || (isSelf && !isAdmin);
+                let canEditBirthDate = isDev || (isAdmin && (isSelf || isManager)) || (isSelf && !isAdmin);
+                let canEditFullName = isDev;
+                let canEditRole = isDev;
+                let canEditRights = isDev;
+                let canEditStatus = isDev;
+                
+                // Показываем кнопку смены пароля для разработчика (всем) и для себя
+                const showPasswordButton = isDev || isSelf;
+                if (showPasswordButton) {
+                    document.getElementById('password-section').style.display = 'block';
+                }
+                
+                let roleOptions = '';
+                if (isDev) {
+                    roleOptions = `
+                        <option value="dev" ${employeeData.role === 'dev' ? 'selected' : ''}>Разработчик</option>
+                        <option value="admin" ${employeeData.role === 'admin' ? 'selected' : ''}>Администратор</option>
+                        <option value="manager" ${employeeData.role === 'manager' ? 'selected' : ''}>Менеджер</option>
+                    `;
+                } else {
+                    roleOptions = `<option value="${employeeData.role}" selected>${employeeData.role === 'admin' ? 'Администратор' : 'Менеджер'}</option>`;
+                }
+                
+                let rightsHtml = '';
+                if (isDev) {
+                    rightsHtml = `
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="can_upload_excel" ${employeeData.can_upload_excel ? 'checked' : ''}>
+                            <label>Разрешить загрузку Excel</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="can_edit_company_details" ${employeeData.can_edit_company_details ? 'checked' : ''}>
+                            <label>Разрешить редактировать реквизиты</label>
+                        </div>
+                    `;
+                } else {
+                    rightsHtml = `
+                        <div class="checkbox-group">
+                            <input type="checkbox" disabled ${employeeData.can_upload_excel ? 'checked' : ''}>
+                            <label>Разрешить загрузку Excel <span class="readonly-badge">только чтение</span></label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" disabled ${employeeData.can_edit_company_details ? 'checked' : ''}>
+                            <label>Разрешить редактировать реквизиты <span class="readonly-badge">только чтение</span></label>
+                        </div>
+                    `;
+                }
+                
+                let statusOptions = '';
+                if (canEditStatus) {
+                    statusOptions = `
+                        <select id="is_active">
+                            <option value="true" ${employeeData.is_active ? 'selected' : ''}>Активен</option>
+                            <option value="false" ${!employeeData.is_active ? 'selected' : ''}>Неактивен</option>
+                        </select>
+                    `;
+                } else {
+                    statusOptions = `
+                        <input type="text" value="${employeeData.is_active ? 'Активен' : 'Неактивен'}" disabled class="disabled-field">
+                    `;
+                }
+                
+                const html = `
+                    <div class="form-group">
+                        <label>ФИО</label>
+                        <input type="text" id="full_name" value="${employeeData.full_name}" ${!canEditFullName ? 'disabled' : ''}>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" value="${employeeData.email}" ${!canEditEmail ? 'disabled' : ''}>
+                    </div>
+                    <div class="form-group">
+                        <label>Телефон</label>
+                        <input type="text" id="phone" value="${employeeData.phone || ''}" ${!canEditPhone ? 'disabled' : ''}>
+                    </div>
+                    <div class="form-group">
+                        <label>Дата рождения</label>
+                        <input type="date" id="birth_date" value="${employeeData.birth_date || ''}" ${!canEditBirthDate ? 'disabled' : ''}>
+                    </div>
+                    <div class="form-group">
+                        <label>Логин</label>
+                        <input type="text" value="${employeeData.login}" disabled class="disabled-field">
+                        <small>Логин изменить нельзя</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Роль</label>
+                        <select id="role" ${!canEditRole ? 'disabled' : ''}>
+                            ${roleOptions}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Статус</label>
+                        ${statusOptions}
+                    </div>
+                    <h3>Права доступа</h3>
+                    ${rightsHtml}
+                    <div style="margin-top: 20px;">
+                        <button class="save-btn" onclick="saveEmployee()">💾 Сохранить</button>
+                        <button class="cancel-btn" onclick="window.location.href='/employees/${employee_id}'">Отмена</button>
+                    </div>
+                    <div id="error" class="error"></div>
+                `;
+                
+                document.getElementById('edit-form').innerHTML = html;
+            } catch(e) {
+                document.getElementById('edit-form').innerHTML = '<p>❌ Ошибка загрузки данных сотрудника</p>';
+            }
+        }
+        
+        async function saveEmployee() {
+            const updateData = {};
+            
+            const fullName = document.getElementById('full_name');
+            const email = document.getElementById('email');
+            const phone = document.getElementById('phone');
+            const birthDate = document.getElementById('birth_date');
+            const role = document.getElementById('role');
+            const isActive = document.getElementById('is_active');
+            const canUploadExcel = document.getElementById('can_upload_excel');
+            const canEditCompanyDetails = document.getElementById('can_edit_company_details');
+            
+            if (fullName && !fullName.disabled && fullName.value !== employeeData.full_name) updateData.full_name = fullName.value;
+            if (email && !email.disabled && email.value !== employeeData.email) updateData.email = email.value;
+            if (phone && !phone.disabled && phone.value !== (employeeData.phone || '')) updateData.phone = phone.value;
+            if (birthDate && !birthDate.disabled && birthDate.value !== (employeeData.birth_date || '')) updateData.birth_date = birthDate.value;
+            if (role && !role.disabled && role.value !== employeeData.role) updateData.role = role.value;
+            if (isActive && !isActive.disabled && isActive.tagName === 'SELECT') updateData.is_active = isActive.value === 'true';
+            if (canUploadExcel && !canUploadExcel.disabled) updateData.can_upload_excel = canUploadExcel.checked;
+            if (canEditCompanyDetails && !canEditCompanyDetails.disabled) updateData.can_edit_company_details = canEditCompanyDetails.checked;
+            
+            if (Object.keys(updateData).length === 0) {
+                document.getElementById('error').textContent = 'Нет данных для сохранения';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/employees/${employee_id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Данные сохранены');
+                    window.location.href = `/employees/${employee_id}`;
+                } else {
+                    const error = await response.json();
+                    document.getElementById('error').textContent = error.detail || 'Ошибка сохранения';
+                }
+            } catch(e) {
+                document.getElementById('error').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'block';
+            document.getElementById('new_password').value = '';
+            document.getElementById('confirm_password').value = '';
+            document.getElementById('passwordError').textContent = '';
+        }
+        
+        function closePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+        }
+        
+        async function changePassword() {
+            const newPass = document.getElementById('new_password').value;
+            const confirmPass = document.getElementById('confirm_password').value;
+            
+            if (!newPass) {
+                document.getElementById('passwordError').textContent = 'Введите новый пароль';
+                return;
+            }
+            if (newPass !== confirmPass) {
+                document.getElementById('passwordError').textContent = 'Пароли не совпадают';
+                return;
+            }
+            if (newPass.length < 6) {
+                document.getElementById('passwordError').textContent = 'Пароль должен быть не менее 6 символов';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/employees/${employee_id}/password`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_password: newPass })
+                });
+                if (response.ok) {
+                    alert('✅ Пароль изменён');
+                    closePasswordModal();
+                } else {
+                    const error = await response.json();
+                    document.getElementById('passwordError').textContent = error.detail || 'Ошибка смены пароля';
+                }
+            } catch(e) {
+                document.getElementById('passwordError').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        getCurrentUser().then(() => {
+            loadEmployee();
+        });
+    </script>
+</body>
+</html>

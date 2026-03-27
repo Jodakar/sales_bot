@@ -41,6 +41,17 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+        .checkbox-container {
+            text-align: left;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-container input {
+            width: auto;
+            margin: 0;
+        }
         button {
             width: 100%;
             padding: 12px;
@@ -69,17 +80,37 @@
         </div>
         <h1>TimoFey</h1>
         <p>Вход в систему</p>
-        <input type="text" id="username" placeholder="Имя пользователя" value="admin">
-        <input type="password" id="password" placeholder="Пароль" value="admin123">
+        <input type="text" id="username" placeholder="Имя пользователя">
+        <input type="password" id="password" placeholder="Пароль">
+        <div class="checkbox-container">
+            <input type="checkbox" id="remember">
+            <label for="remember">Запомнить меня</label>
+        </div>
         <button onclick="login()">Войти</button>
         <div id="error" class="error"></div>
     </div>
 
     <script>
+        // Загрузка сохранённых данных
+        const savedLogin = localStorage.getItem('saved_login');
+        const savedPassword = localStorage.getItem('saved_password');
+        
+        if (savedLogin && savedPassword) {
+            document.getElementById('username').value = savedLogin;
+            document.getElementById('password').value = savedPassword;
+            document.getElementById('remember').checked = true;
+        }
+        
         async function login() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
             const errorDiv = document.getElementById('error');
+            
+            if (!username || !password) {
+                errorDiv.textContent = 'Введите логин и пароль';
+                return;
+            }
             
             try {
                 const response = await fetch('/api/auth/login', {
@@ -91,6 +122,15 @@
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Сохраняем логин и пароль если галочка стоит
+                    if (remember) {
+                        localStorage.setItem('saved_login', username);
+                        localStorage.setItem('saved_password', password);
+                    } else {
+                        localStorage.removeItem('saved_login');
+                        localStorage.removeItem('saved_password');
+                    }
+                    
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     window.location.href = '/';
@@ -102,6 +142,7 @@
             }
         }
         
+        // Проверка, может уже залогинены
         const token = localStorage.getItem('token');
         if (token) {
             fetch(`/api/auth/check?token=${token}`)
@@ -112,6 +153,13 @@
                     }
                 });
         }
+        
+        // Нажатие Enter
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
     </script>
 </body>
 </html>
