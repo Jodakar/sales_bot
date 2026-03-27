@@ -18,6 +18,28 @@
         .add-btn:hover {
             background: #219a52;
         }
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-section input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .search-section button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-section button:hover {
+            background: #2980b9;
+        }
         .view-btn {
             background: #3498db;
             color: white;
@@ -26,9 +48,6 @@
             border-radius: 3px;
             cursor: pointer;
             margin-right: 5px;
-        }
-        .view-btn:hover {
-            background: #2980b9;
         }
         .edit-btn {
             background: #f39c12;
@@ -39,9 +58,6 @@
             cursor: pointer;
             margin-right: 5px;
         }
-        .edit-btn:hover {
-            background: #e67e22;
-        }
         .delete-btn {
             background: #e74c3c;
             color: white;
@@ -49,9 +65,6 @@
             padding: 5px 10px;
             border-radius: 3px;
             cursor: pointer;
-        }
-        .delete-btn:hover {
-            background: #c0392b;
         }
         .role-dev {
             background: #9b59b6;
@@ -146,28 +159,6 @@
             color: #e74c3c;
             margin-top: 10px;
         }
-        .search-section {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .search-section input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .search-section button {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .search-section button:hover {
-            background: #2980b9;
-        }
     </style>
 </head>
 <body>
@@ -192,7 +183,7 @@
         </div>
         
         <div class="search-section">
-            <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону..." onkeyup="searchEmployees()">
+            <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону...">
             <button onclick="searchEmployees()">🔍 Найти</button>
         </div>
         
@@ -208,7 +199,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно добавления сотрудника -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
@@ -248,9 +238,7 @@
         const token = localStorage.getItem('token');
         let currentUser = null;
         
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) window.location.href = '/login';
         
         async function getCurrentUser() {
             try {
@@ -281,13 +269,9 @@
             return '<span class="inactive-badge">Неактивен</span>';
         }
         
-        async function loadEmployees(query = '') {
+        async function loadEmployees() {
             try {
-                let url = '/api/employees/';
-                if (query && query.trim() !== '') {
-                    url = `/api/employees/search?query=${encodeURIComponent(query)}`;
-                }
-                const response = await fetch(url);
+                const response = await fetch('/api/employees/');
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const employees = await response.json();
                 
@@ -296,18 +280,27 @@
                     return;
                 }
                 
-                let html = ' <thead> <th>ID</th><th>ФИО</th><th>Email</th><th>Телефон</th><th>Роль</th><th>Статус</th><th>Действия</th> </thead><tbody>';
+                let html = '<table style="width:100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background:#f5f5f5;">';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">ID</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">ФИО</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Email</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Телефон</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Роль</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Статус</th>';
+                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Действия</th>';
+                html += ' </thead><tbody>';
                 
                 for (let i = 0; i < employees.length; i++) {
                     const e = employees[i];
-                    html += ' 3 ';
-                    html += '  Whether' + e.employee_id + '  ';
-                    html += '  Whether' + e.full_name + '  ';
-                    html += '  Whether' + e.email + '  ';
-                    html += '  Whether' + (e.phone || '—') + '  ';
-                    html += '  Whether' + getRoleBadge(e.role) + '  ';
-                    html += '  Whether' + getStatusBadge(e.is_active) + '  ';
-                    html += '  Whether';
+                    html += ' <tr style="border-bottom:1px solid #eee;">';
+                    html += ' <td style="padding:12px;">' + e.employee_id + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.full_name + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.email + ' </td>';
+                    html += ' <td style="padding:12px;">' + (e.phone || '—') + ' </td>';
+                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + ' </td>';
+                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + ' </td>';
+                    html += ' <td style="padding:12px;">';
                     html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
                     if (currentUser && currentUser.role === 'dev') {
                         html += '<button class="edit-btn" onclick="editEmployee(' + e.employee_id + ')">✏️</button>';
@@ -315,11 +308,10 @@
                             html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
                         }
                     }
-                    html += '  ';
-                    html += '  ';
+                    html += ' </td></tr>';
                 }
                 
-                html += '</tbody>  </div>';
+                html += '</tbody></table>';
                 document.getElementById('employees-table').innerHTML = html;
             } catch(e) {
                 document.getElementById('employees-table').innerHTML = '<p>❌ Ошибка загрузки сотрудников: ' + e.message + '</p>';
@@ -328,16 +320,58 @@
         
         function searchEmployees() {
             const query = document.getElementById('searchInput').value.trim();
-            loadEmployees(query);
+            if (query === '') {
+                loadEmployees();
+            } else {
+                loadEmployeesSearch(query);
+            }
         }
         
-        function viewEmployee(id) {
-            window.location.href = `/employees/${id}`;
+        async function loadEmployeesSearch(query) {
+            try {
+                const response = await fetch(`/api/employees/search?query=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const employees = await response.json();
+                
+                if (employees.length === 0) {
+                    document.getElementById('employees-table').innerHTML = '<p>📭 Нет сотрудников по вашему запросу</p>';
+                    return;
+                }
+                
+                let html = '<table style="width:100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background:#f5f5f5;">';
+                html += '<th style="padding:12px;">ID</th><th style="padding:12px;">ФИО</th><th style="padding:12px;">Email</th><th style="padding:12px;">Телефон</th><th style="padding:12px;">Роль</th><th style="padding:12px;">Статус</th><th style="padding:12px;">Действия</th>';
+                html += ' </thead><tbody>';
+                
+                for (let i = 0; i < employees.length; i++) {
+                    const e = employees[i];
+                    html += ' <tr style="border-bottom:1px solid #eee;">';
+                    html += ' <td style="padding:12px;">' + e.employee_id + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.full_name + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.email + ' </td>';
+                    html += ' <td style="padding:12px;">' + (e.phone || '—') + ' </td>';
+                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + ' </td>';
+                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + ' </td>';
+                    html += ' <td style="padding:12px;">';
+                    html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
+                    if (currentUser && currentUser.role === 'dev') {
+                        html += '<button class="edit-btn" onclick="editEmployee(' + e.employee_id + ')">✏️</button>';
+                        if (currentUser.employee_id !== e.employee_id) {
+                            html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
+                        }
+                    }
+                    html += ' </td></tr>';
+                }
+                
+                html += '</tbody></table>';
+                document.getElementById('employees-table').innerHTML = html;
+            } catch(e) {
+                document.getElementById('employees-table').innerHTML = '<p>❌ Ошибка загрузки: ' + e.message + '</p>';
+            }
         }
         
-        function editEmployee(id) {
-            window.location.href = `/employees/${id}/edit`;
-        }
+        function viewEmployee(id) { window.location.href = `/employees/${id}`; }
+        function editEmployee(id) { window.location.href = `/employees/${id}/edit`; }
         
         async function deleteEmployee(id) {
             if (!confirm('Удалить сотрудника?')) return;
@@ -346,12 +380,8 @@
                 if (response.ok) {
                     alert('✅ Сотрудник удалён');
                     loadEmployees();
-                } else {
-                    alert('❌ Ошибка удаления');
-                }
-            } catch(e) {
-                alert('❌ Ошибка');
-            }
+                } else alert('❌ Ошибка удаления');
+            } catch(e) { alert('❌ Ошибка'); }
         }
         
         function showAddModal() {
@@ -388,12 +418,9 @@
             }
             
             const employee = {
-                full_name: full_name,
-                email: email,
+                full_name, email, login, password,
                 phone: document.getElementById('add_phone').value || null,
                 birth_date: document.getElementById('add_birth_date').value || null,
-                login: login,
-                password: password,
                 role: document.getElementById('add_role').value,
                 can_upload_excel: document.getElementById('add_can_upload_excel').checked,
                 can_edit_company_details: document.getElementById('add_can_edit_company_details').checked
@@ -405,7 +432,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(employee)
                 });
-                
                 if (response.ok) {
                     alert('✅ Сотрудник добавлен');
                     closeAddModal();
@@ -414,24 +440,18 @@
                     const error = await response.json();
                     document.getElementById('addError').textContent = error.detail || 'Ошибка добавления';
                 }
-            } catch(e) {
-                document.getElementById('addError').textContent = 'Ошибка подключения к серверу';
-            }
+            } catch(e) { document.getElementById('addError').textContent = 'Ошибка подключения к серверу'; }
         }
         
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) {
-                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
-            }
+            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
         
-        getCurrentUser().then(() => {
-            loadEmployees();
-        });
+        getCurrentUser().then(() => loadEmployees());
     </script>
 </body>
 </html>
