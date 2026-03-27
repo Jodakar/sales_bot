@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import hashlib
 import sys
@@ -43,13 +43,39 @@ def hash_password(password: str) -> str:
 
 
 def get_current_user(token: str = None):
-    """
-    Временная заглушка — получить текущего пользователя из токена
-    В реальном проекте нужно получать из сессии
-    """
-    # TODO: реализовать получение пользователя из токена
-    # Пока возвращаем разработчика для теста
+    """Временная заглушка — получить текущего пользователя из токена"""
     return {"employee_id": 2, "full_name": "Мациев Тимофей Александрович", "role": "dev"}
+
+
+# ========== МАРШРУТЫ ==========
+
+@router.get("/search")
+async def search_employees(query: str):
+    """Поиск сотрудников по ФИО, email, телефону, логину"""
+    if not query or query.strip() == "":
+        return []
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT employee_id, full_name, email, phone, birth_date, role, login, is_active
+                FROM employees
+                WHERE full_name ILIKE %s 
+                   OR email ILIKE %s 
+                   OR phone ILIKE %s 
+                   OR login ILIKE %s
+                ORDER BY full_name
+            """, (f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"))
+            columns = [desc[0] for desc in cur.description]
+            rows = cur.fetchall()
+            employees = [dict(zip(columns, row)) for row in rows]
+            for e in employees:
+                if e['birth_date']:
+                    e['birth_date'] = e['birth_date'].strftime('%d.%m.%Y')
+            return employees
+    finally:
+        conn.close()
 
 
 @router.get("/")
@@ -114,7 +140,6 @@ async def create_employee(employee: EmployeeCreate):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # Проверка уникальности логина и email
             cur.execute("SELECT employee_id FROM employees WHERE login = %s", (employee.login,))
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail="Логин уже существует")
@@ -134,7 +159,6 @@ async def create_employee(employee: EmployeeCreate):
                   employee.can_edit_company_details, current_user['employee_id']))
             employee_id = cur.fetchone()[0]
             conn.commit()
-            
             return {"employee_id": employee_id, "message": "Сотрудник создан"}
     except Exception as e:
         conn.rollback()
@@ -150,7 +174,6 @@ async def update_employee(employee_id: int, update: EmployeeUpdate):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            # Проверяем, существует ли сотрудник и его роль
             cur.execute("SELECT role FROM employees WHERE employee_id = %s", (employee_id,))
             target = cur.fetchone()
             if not target:
@@ -158,7 +181,6 @@ async def update_employee(employee_id: int, update: EmployeeUpdate):
             
             target_role = target[0]
             
-            # Определяем права
             is_dev = current_user['role'] == 'dev'
             is_admin = current_user['role'] == 'admin'
             is_manager = current_user['role'] == 'manager'
@@ -167,14 +189,14 @@ async def update_employee(employee_id: int, update: EmployeeUpdate):
             updates = []
             values = []
             
-            # Разработчик может редактировать всё (кроме логина)
             if is_dev:
                 if update.full_name is not None:
                     updates.append("full_name = %s"); values.append(update.full_name)
                 if update.phone is not None:
-                    updates.append("phone = %s"); values.append(update.phone)
+                    updates.append("phone = %s"); values.append(update.phone if update.phone else None)
                 if update.birth_date is not None:
-                    updates.append("birth_date = %s"); values.append(update.birth_date)
+                    birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                    updates.append("birth_date = %s"); values.append(birth_val)
                 if update.email is not None:
                     updates.append("email = %s"); values.append(update.email)
                 if update.role is not None:
@@ -186,31 +208,30 @@ async def update_employee(employee_id: int, update: EmployeeUpdate):
                 if update.is_active is not None:
                     updates.append("is_active = %s"); values.append(update.is_active)
             
-            # Администратор: может редактировать свои данные и данные менеджеров
             elif is_admin:
                 if is_self:
-                    # Свои данные: телефон, email, дата рождения
                     if update.phone is not None:
-                        updates.append("phone = %s"); values.append(update.phone)
+                        updates.append("phone = %s"); values.append(update.phone if update.phone else None)
                     if update.birth_date is not None:
-                        updates.append("birth_date = %s"); values.append(update.birth_date)
+                        birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                        updates.append("birth_date = %s"); values.append(birth_val)
                     if update.email is not None:
                         updates.append("email = %s"); values.append(update.email)
                 elif target_role == 'manager':
-                    # Редактирование менеджеров: телефон, email, дата рождения
                     if update.phone is not None:
-                        updates.append("phone = %s"); values.append(update.phone)
+                        updates.append("phone = %s"); values.append(update.phone if update.phone else None)
                     if update.birth_date is not None:
-                        updates.append("birth_date = %s"); values.append(update.birth_date)
+                        birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                        updates.append("birth_date = %s"); values.append(birth_val)
                     if update.email is not None:
                         updates.append("email = %s"); values.append(update.email)
             
-            # Менеджер: может редактировать только свои данные (телефон, email, дата рождения)
             elif is_manager and is_self:
                 if update.phone is not None:
-                    updates.append("phone = %s"); values.append(update.phone)
+                    updates.append("phone = %s"); values.append(update.phone if update.phone else None)
                 if update.birth_date is not None:
-                    updates.append("birth_date = %s"); values.append(update.birth_date)
+                    birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                    updates.append("birth_date = %s"); values.append(birth_val)
                 if update.email is not None:
                     updates.append("email = %s"); values.append(update.email)
             
@@ -237,7 +258,7 @@ async def change_password(employee_id: int, password_data: PasswordChange):
     is_self = current_user['employee_id'] == employee_id
     
     if not (is_dev or is_self):
-        raise HTTPException(status_code=403, detail="Доступ запрещён. Вы можете менять пароль только себе")
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
     
     if len(password_data.new_password) < 6:
         raise HTTPException(status_code=400, detail="Пароль должен быть не менее 6 символов")
@@ -246,9 +267,7 @@ async def change_password(employee_id: int, password_data: PasswordChange):
     try:
         with conn.cursor() as cur:
             password_hash = hash_password(password_data.new_password)
-            cur.execute("""
-                UPDATE employees SET password_hash = %s WHERE employee_id = %s
-            """, (password_hash, employee_id))
+            cur.execute("UPDATE employees SET password_hash = %s WHERE employee_id = %s", (password_hash, employee_id))
             conn.commit()
             return {"message": "Пароль изменён"}
     finally:
@@ -260,7 +279,7 @@ async def delete_employee(employee_id: int):
     """Удаление сотрудника (только для разработчика)"""
     current_user = get_current_user()
     if current_user['role'] != 'dev':
-        raise HTTPException(status_code=403, detail="Доступ запрещён. Только разработчик может удалять сотрудников")
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
     
     if employee_id == current_user['employee_id']:
         raise HTTPException(status_code=400, detail="Нельзя удалить себя")
@@ -273,33 +292,3 @@ async def delete_employee(employee_id: int):
             return {"message": "Сотрудник удалён"}
     finally:
         conn.close()
-
-
-@router.get("/search")
-async def search_employees(query: str = ""):
-    """Поиск сотрудников по ФИО, email, телефону, логину"""
-    if not query or query.strip() == "":
-        return []
-    
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT employee_id, full_name, email, phone, birth_date, role, login, is_active
-                FROM employees
-                WHERE full_name ILIKE %s 
-                   OR email ILIKE %s 
-                   OR phone ILIKE %s 
-                   OR login ILIKE %s
-                ORDER BY full_name
-            """, (f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"))
-            columns = [desc[0] for desc in cur.description]
-            rows = cur.fetchall()
-            employees = [dict(zip(columns, row)) for row in rows]
-            for e in employees:
-                if e['birth_date']:
-                    e['birth_date'] = e['birth_date'].strftime('%d.%m.%Y')
-            return employees
-    finally:
-        conn.close()
-        

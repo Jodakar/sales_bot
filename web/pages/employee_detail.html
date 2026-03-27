@@ -112,11 +112,8 @@
     <script>
         const employee_id = window.location.pathname.split('/').pop();
         const token = localStorage.getItem('token');
-        let currentUser = null;
         
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) window.location.href = '/login';
         
         async function getCurrentUser() {
             try {
@@ -128,7 +125,6 @@
                     window.location.href = '/login';
                     return null;
                 }
-                currentUser = data.user;
                 document.getElementById('userName').textContent = data.user.name;
                 return data.user;
             } catch(e) {
@@ -175,17 +171,13 @@
         
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) {
-                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
-            }
+            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
         
-        getCurrentUser().then(() => {
-            loadEmployee();
-        });
+        getCurrentUser().then(() => loadEmployee());
     </script>
 </body>
 </html>

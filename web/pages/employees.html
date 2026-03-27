@@ -49,6 +49,9 @@
             cursor: pointer;
             margin-right: 5px;
         }
+        .view-btn:hover {
+            background: #2980b9;
+        }
         .edit-btn {
             background: #f39c12;
             color: white;
@@ -57,6 +60,14 @@
             border-radius: 3px;
             cursor: pointer;
             margin-right: 5px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .edit-btn.disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
         .delete-btn {
             background: #e74c3c;
@@ -159,6 +170,20 @@
             color: #e74c3c;
             margin-top: 10px;
         }
+        .phone-prefix {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .phone-prefix span {
+            background: #f5f5f5;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .phone-prefix input {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -199,6 +224,7 @@
         </div>
     </div>
 
+    <!-- Модальное окно добавления сотрудника -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
@@ -208,7 +234,10 @@
             <label>Email *</label>
             <input type="email" id="add_email">
             <label>Телефон</label>
-            <input type="text" id="add_phone">
+            <div class="phone-prefix">
+                <span>+</span>
+                <input type="text" id="add_phone" placeholder="79259964247">
+            </div>
             <label>Дата рождения</label>
             <input type="date" id="add_birth_date">
             <label>Логин *</label>
@@ -216,7 +245,7 @@
             <label>Пароль *</label>
             <input type="password" id="add_password">
             <label>Роль</label>
-            <select id="add_role">
+            <select id="add_role" onchange="toggleRightsByRole('add')">
                 <option value="manager">Менеджер</option>
                 <option value="admin">Администратор</option>
                 <option value="dev">Разработчик</option>
@@ -239,6 +268,29 @@
         let currentUser = null;
         
         if (!token) window.location.href = '/login';
+        
+        function toggleRightsByRole(type) {
+            let roleSelect, uploadCheckbox, editCheckbox;
+            if (type === 'add') {
+                roleSelect = document.getElementById('add_role');
+                uploadCheckbox = document.getElementById('add_can_upload_excel');
+                editCheckbox = document.getElementById('add_can_edit_company_details');
+            } else {
+                roleSelect = document.getElementById('edit_role');
+                uploadCheckbox = document.getElementById('edit_can_upload_excel');
+                editCheckbox = document.getElementById('edit_can_edit_company_details');
+            }
+            
+            if (roleSelect && roleSelect.value === 'manager') {
+                if (uploadCheckbox) uploadCheckbox.disabled = true;
+                if (editCheckbox) editCheckbox.disabled = true;
+                if (uploadCheckbox) uploadCheckbox.checked = false;
+                if (editCheckbox) editCheckbox.checked = false;
+            } else {
+                if (uploadCheckbox) uploadCheckbox.disabled = false;
+                if (editCheckbox) editCheckbox.disabled = false;
+            }
+        }
         
         async function getCurrentUser() {
             try {
@@ -269,6 +321,23 @@
             return '<span class="inactive-badge">Неактивен</span>';
         }
         
+        // Проверка, может ли пользователь редактировать этого сотрудника
+        function canEditEmployee(targetEmployee) {
+            if (!currentUser) return false;
+            const isDev = currentUser.role === 'dev';
+            const isAdmin = currentUser.role === 'admin';
+            const isSelf = currentUser.employee_id === targetEmployee.employee_id;
+            const targetRole = targetEmployee.role;
+            
+            if (isDev) return true;
+            if (isAdmin && isSelf) return true;
+            if (isAdmin && targetRole === 'manager') return true;
+            if (isAdmin && targetRole === 'admin' && isSelf) return true;
+            if (isAdmin && targetRole === 'dev') return false;
+            if (isSelf && (currentUser.role === 'manager' || currentUser.role === 'admin')) return true;
+            return false;
+        }
+        
         async function loadEmployees() {
             try {
                 const response = await fetch('/api/employees/');
@@ -293,22 +362,25 @@
                 
                 for (let i = 0; i < employees.length; i++) {
                     const e = employees[i];
+                    const canEdit = canEditEmployee(e);
+                    const editDisabledClass = !canEdit ? 'disabled' : '';
+                    const editDisabledAttr = !canEdit ? 'disabled' : '';
+                    
                     html += ' <tr style="border-bottom:1px solid #eee;">';
-                    html += ' <td style="padding:12px;">' + e.employee_id + ' </td>';
-                    html += ' <td style="padding:12px;">' + e.full_name + ' </td>';
-                    html += ' <td style="padding:12px;">' + e.email + ' </td>';
-                    html += ' <td style="padding:12px;">' + (e.phone || '—') + ' </td>';
-                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + ' </td>';
-                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.employee_id + '   </td>';
+                    html += ' <td style="padding:12px;">' + e.full_name + '   </td>';
+                    html += ' <td style="padding:12px;">' + e.email + '   </td>';
+                    html += ' <td style="padding:12px;">' + (e.phone || '—') + '   </td>';
+                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + '   </td>';
+                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + '   </td>';
                     html += ' <td style="padding:12px;">';
                     html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
-                    if (currentUser && currentUser.role === 'dev') {
-                        html += '<button class="edit-btn" onclick="editEmployee(' + e.employee_id + ')">✏️</button>';
-                        if (currentUser.employee_id !== e.employee_id) {
-                            html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
-                        }
+                    html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
+                    if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
+                        html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
                     }
-                    html += ' </td></tr>';
+                    html += '   </td>';
+                    html += '  </tr>';
                 }
                 
                 html += '</tbody></table>';
@@ -345,22 +417,25 @@
                 
                 for (let i = 0; i < employees.length; i++) {
                     const e = employees[i];
+                    const canEdit = canEditEmployee(e);
+                    const editDisabledClass = !canEdit ? 'disabled' : '';
+                    const editDisabledAttr = !canEdit ? 'disabled' : '';
+                    
                     html += ' <tr style="border-bottom:1px solid #eee;">';
-                    html += ' <td style="padding:12px;">' + e.employee_id + ' </td>';
-                    html += ' <td style="padding:12px;">' + e.full_name + ' </td>';
-                    html += ' <td style="padding:12px;">' + e.email + ' </td>';
-                    html += ' <td style="padding:12px;">' + (e.phone || '—') + ' </td>';
-                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + ' </td>';
-                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + ' </td>';
+                    html += ' <td style="padding:12px;">' + e.employee_id + '   </td>';
+                    html += ' <td style="padding:12px;">' + e.full_name + '   </td>';
+                    html += ' <td style="padding:12px;">' + e.email + '   </td>';
+                    html += ' <td style="padding:12px;">' + (e.phone || '—') + '   </td>';
+                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + '   </td>';
+                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + '   </td>';
                     html += ' <td style="padding:12px;">';
                     html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
-                    if (currentUser && currentUser.role === 'dev') {
-                        html += '<button class="edit-btn" onclick="editEmployee(' + e.employee_id + ')">✏️</button>';
-                        if (currentUser.employee_id !== e.employee_id) {
-                            html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
-                        }
+                    html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
+                    if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
+                        html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
                     }
-                    html += ' </td></tr>';
+                    html += '   </td>';
+                    html += '  </tr>';
                 }
                 
                 html += '</tbody></table>';
@@ -371,7 +446,23 @@
         }
         
         function viewEmployee(id) { window.location.href = `/employees/${id}`; }
-        function editEmployee(id) { window.location.href = `/employees/${id}/edit`; }
+        function editEmployee(id) { 
+            if (!canEditEmployeeById(id)) {
+                alert('У вас нет прав на редактирование этого сотрудника');
+                return;
+            }
+            window.location.href = `/employees/${id}/edit`; 
+        }
+        
+        async function canEditEmployeeById(id) {
+            try {
+                const response = await fetch(`/api/employees/${id}`);
+                const employee = await response.json();
+                return canEditEmployee(employee);
+            } catch(e) {
+                return false;
+            }
+        }
         
         async function deleteEmployee(id) {
             if (!confirm('Удалить сотрудника?')) return;
@@ -389,6 +480,7 @@
                 alert('Только разработчик может добавлять сотрудников');
                 return;
             }
+            toggleRightsByRole('add');
             document.getElementById('addModal').style.display = 'block';
         }
         
@@ -404,6 +496,7 @@
             document.getElementById('add_can_upload_excel').checked = false;
             document.getElementById('add_can_edit_company_details').checked = false;
             document.getElementById('addError').textContent = '';
+            toggleRightsByRole('add');
         }
         
         async function addEmployee() {
@@ -411,6 +504,7 @@
             const email = document.getElementById('add_email').value.trim();
             const login = document.getElementById('add_login').value.trim();
             const password = document.getElementById('add_password').value;
+            const phone = document.getElementById('add_phone').value.trim();
             
             if (!full_name || !email || !login || !password) {
                 document.getElementById('addError').textContent = 'Заполните все обязательные поля';
@@ -418,9 +512,12 @@
             }
             
             const employee = {
-                full_name, email, login, password,
-                phone: document.getElementById('add_phone').value || null,
+                full_name: full_name,
+                email: email,
+                phone: phone ? '+' + phone : null,
                 birth_date: document.getElementById('add_birth_date').value || null,
+                login: login,
+                password: password,
                 role: document.getElementById('add_role').value,
                 can_upload_excel: document.getElementById('add_can_upload_excel').checked,
                 can_edit_company_details: document.getElementById('add_can_edit_company_details').checked
