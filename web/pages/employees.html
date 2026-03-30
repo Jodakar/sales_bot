@@ -117,6 +117,32 @@
             display: inline-block;
             font-size: 12px;
         }
+        .employees-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .employees-table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #ddd;
+            font-weight: 600;
+        }
+        .employees-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .employees-table tr:hover {
+            background: #f9f9f9;
+        }
+        .employees-table tr:nth-child(even) {
+            background: #ffffff;
+        }
+        .employees-table tr:nth-child(odd) {
+            background: #f9f9f9;
+        }
         .modal {
             display: none;
             position: fixed;
@@ -183,6 +209,20 @@
         }
         .phone-prefix input {
             flex: 1;
+            maxlength="11";
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
         }
     </style>
 </head>
@@ -210,6 +250,7 @@
         <div class="search-section">
             <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону...">
             <button onclick="searchEmployees()">🔍 Найти</button>
+            <button onclick="resetSearch()">✖️ Сброс</button>
         </div>
         
         <button class="add-btn" onclick="showAddModal()">➕ Добавить сотрудника</button>
@@ -224,7 +265,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно добавления сотрудника -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
@@ -236,7 +276,7 @@
             <label>Телефон</label>
             <div class="phone-prefix">
                 <span>+</span>
-                <input type="text" id="add_phone" placeholder="79259964247">
+                <input type="text" id="add_phone" placeholder="79250000000" maxlength="11">
             </div>
             <label>Дата рождения</label>
             <input type="date" id="add_birth_date">
@@ -259,6 +299,7 @@
                 <label>Разрешить редактировать реквизиты</label>
             </div>
             <button onclick="addEmployee()" style="margin-top: 20px;">Сохранить</button>
+            <button onclick="closeAddModal()">Отмена</button>
             <div id="addError" class="error"></div>
         </div>
     </div>
@@ -321,7 +362,6 @@
             return '<span class="inactive-badge">Неактивен</span>';
         }
         
-        // Проверка, может ли пользователь редактировать этого сотрудника
         function canEditEmployee(targetEmployee) {
             if (!currentUser) return false;
             const isDev = currentUser.role === 'dev';
@@ -338,131 +378,79 @@
             return false;
         }
         
-        async function loadEmployees() {
+        function renderEmployeesTable(employees) {
+            if (!employees || employees.length === 0) {
+                document.getElementById('employees-table').innerHTML = '<p>📭 Нет сотрудников</p>';
+                return;
+            }
+            
+            let html = '<table class="employees-table">';
+            html += '<thead><tr style="background:#f5f5f5;">';
+            html += '<th style="padding:12px; text-align:left;">ID</th>';
+            html += '<th style="padding:12px; text-align:left;">ФИО</th>';
+            html += '<th style="padding:12px; text-align:left;">Email</th>';
+            html += '<th style="padding:12px; text-align:left;">Телефон</th>';
+            html += '<th style="padding:12px; text-align:left;">Роль</th>';
+            html += '<th style="padding:12px; text-align:left;">Статус</th>';
+            html += '<th style="padding:12px; text-align:left;">Действия</th>';
+            html += ' </thead><tbody>';
+            
+            for (let i = 0; i < employees.length; i++) {
+                const e = employees[i];
+                const canEdit = canEditEmployee(e);
+                const editDisabledClass = !canEdit ? 'disabled' : '';
+                const editDisabledAttr = !canEdit ? 'disabled' : '';
+                const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                
+                html += '<tr style="border-bottom:1px solid #eee; ' + rowStyle + '">';
+                html += '<td style="padding:12px;">' + e.employee_id + '</td>';
+                html += '<td style="padding:12px;"><strong>' + e.full_name + '</strong></td>';
+                html += '<td style="padding:12px;">' + e.email + '</td>';
+                html += '<td style="padding:12px;">' + (e.phone || '—') + '</td>';
+                html += '<td style="padding:12px;">' + getRoleBadge(e.role) + '</td>';
+                html += '<td style="padding:12px;">' + getStatusBadge(e.is_active) + '</td>';
+                html += '<td style="padding:12px;">';
+                html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
+                html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
+                if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
+                    html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('employees-table').innerHTML = html;
+        }
+        
+        async function loadEmployees(query = '') {
             try {
-                const response = await fetch('/api/employees/');
+                let url = '/api/employees/';
+                if (query && query.trim() !== '') {
+                    url = `/api/employees/search?query=${encodeURIComponent(query)}`;
+                }
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const employees = await response.json();
-                
-                if (employees.length === 0) {
-                    document.getElementById('employees-table').innerHTML = '<p>📭 Нет сотрудников</p>';
-                    return;
-                }
-                
-                let html = '<table style="width:100%; border-collapse: collapse;">';
-                html += '<thead><tr style="background:#f5f5f5;">';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">ID</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">ФИО</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Email</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Телефон</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Роль</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Статус</th>';
-                html += '<th style="padding:12px; text-align:left; border-bottom:1px solid #ddd;">Действия</th>';
-                html += ' </thead><tbody>';
-                
-                for (let i = 0; i < employees.length; i++) {
-                    const e = employees[i];
-                    const canEdit = canEditEmployee(e);
-                    const editDisabledClass = !canEdit ? 'disabled' : '';
-                    const editDisabledAttr = !canEdit ? 'disabled' : '';
-                    
-                    html += ' <tr style="border-bottom:1px solid #eee;">';
-                    html += ' <td style="padding:12px;">' + e.employee_id + '   </td>';
-                    html += ' <td style="padding:12px;">' + e.full_name + '   </td>';
-                    html += ' <td style="padding:12px;">' + e.email + '   </td>';
-                    html += ' <td style="padding:12px;">' + (e.phone || '—') + '   </td>';
-                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + '   </td>';
-                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + '   </td>';
-                    html += ' <td style="padding:12px;">';
-                    html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
-                    html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
-                    if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
-                        html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
-                    }
-                    html += '   </td>';
-                    html += '  </tr>';
-                }
-                
-                html += '</tbody></table>';
-                document.getElementById('employees-table').innerHTML = html;
+                renderEmployeesTable(employees);
             } catch(e) {
+                console.error('Ошибка загрузки сотрудников:', e);
                 document.getElementById('employees-table').innerHTML = '<p>❌ Ошибка загрузки сотрудников: ' + e.message + '</p>';
             }
         }
         
         function searchEmployees() {
             const query = document.getElementById('searchInput').value.trim();
-            if (query === '') {
-                loadEmployees();
-            } else {
-                loadEmployeesSearch(query);
-            }
+            loadEmployees(query);
         }
         
-        async function loadEmployeesSearch(query) {
-            try {
-                const response = await fetch(`/api/employees/search?query=${encodeURIComponent(query)}`);
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const employees = await response.json();
-                
-                if (employees.length === 0) {
-                    document.getElementById('employees-table').innerHTML = '<p>📭 Нет сотрудников по вашему запросу</p>';
-                    return;
-                }
-                
-                let html = '<table style="width:100%; border-collapse: collapse;">';
-                html += '<thead><tr style="background:#f5f5f5;">';
-                html += '<th style="padding:12px;">ID</th><th style="padding:12px;">ФИО</th><th style="padding:12px;">Email</th><th style="padding:12px;">Телефон</th><th style="padding:12px;">Роль</th><th style="padding:12px;">Статус</th><th style="padding:12px;">Действия</th>';
-                html += ' </thead><tbody>';
-                
-                for (let i = 0; i < employees.length; i++) {
-                    const e = employees[i];
-                    const canEdit = canEditEmployee(e);
-                    const editDisabledClass = !canEdit ? 'disabled' : '';
-                    const editDisabledAttr = !canEdit ? 'disabled' : '';
-                    
-                    html += ' <tr style="border-bottom:1px solid #eee;">';
-                    html += ' <td style="padding:12px;">' + e.employee_id + '   </td>';
-                    html += ' <td style="padding:12px;">' + e.full_name + '   </td>';
-                    html += ' <td style="padding:12px;">' + e.email + '   </td>';
-                    html += ' <td style="padding:12px;">' + (e.phone || '—') + '   </td>';
-                    html += ' <td style="padding:12px;">' + getRoleBadge(e.role) + '   </td>';
-                    html += ' <td style="padding:12px;">' + getStatusBadge(e.is_active) + '   </td>';
-                    html += ' <td style="padding:12px;">';
-                    html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
-                    html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
-                    if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
-                        html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
-                    }
-                    html += '   </td>';
-                    html += '  </tr>';
-                }
-                
-                html += '</tbody></table>';
-                document.getElementById('employees-table').innerHTML = html;
-            } catch(e) {
-                document.getElementById('employees-table').innerHTML = '<p>❌ Ошибка загрузки: ' + e.message + '</p>';
-            }
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            loadEmployees();
         }
         
         function viewEmployee(id) { window.location.href = `/employees/${id}`; }
-        function editEmployee(id) { 
-            if (!canEditEmployeeById(id)) {
-                alert('У вас нет прав на редактирование этого сотрудника');
-                return;
-            }
-            window.location.href = `/employees/${id}/edit`; 
-        }
-        
-        async function canEditEmployeeById(id) {
-            try {
-                const response = await fetch(`/api/employees/${id}`);
-                const employee = await response.json();
-                return canEditEmployee(employee);
-            } catch(e) {
-                return false;
-            }
-        }
+        function editEmployee(id) { window.location.href = `/employees/${id}/edit`; }
         
         async function deleteEmployee(id) {
             if (!confirm('Удалить сотрудника?')) return;
@@ -511,6 +499,16 @@
                 return;
             }
             
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                document.getElementById('addError').textContent = 'Введите корректный email (должен содержать @ и .)';
+                return;
+            }
+            
+            if (phone && !/^\d{11}$/.test(phone)) {
+                document.getElementById('addError').textContent = 'Телефон должен содержать ровно 11 цифр (без +)';
+                return;
+            }
+            
             const employee = {
                 full_name: full_name,
                 email: email,
@@ -537,8 +535,16 @@
                     const error = await response.json();
                     document.getElementById('addError').textContent = error.detail || 'Ошибка добавления';
                 }
-            } catch(e) { document.getElementById('addError').textContent = 'Ошибка подключения к серверу'; }
+            } catch(e) { 
+                document.getElementById('addError').textContent = 'Ошибка подключения к серверу'; 
+            }
         }
+        
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchEmployees();
+            }
+        });
         
         async function logout() {
             const token = localStorage.getItem('token');

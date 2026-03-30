@@ -6,18 +6,232 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .detail-card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .status-select { padding: 8px; border-radius: 5px; margin-right: 10px; }
-        .items-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-        .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .items-table th { background: #f5f5f5; }
-        .back-btn { background: #95a5a6; margin-bottom: 20px; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; color: white; }
-        .back-btn:hover { background: #7f8c8d; }
-        .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .pay-btn { background: #f39c12; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
-        .pay-btn:hover { background: #e67e22; }
+        .detail-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-select {
+            padding: 8px;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .items-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        .items-table th, .items-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .items-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .status-paid {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .status-not_paid {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .status-delivered {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .edit-order-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .edit-order-btn:hover {
+            background: #2980b9;
+        }
+        .confirm-payment-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .confirm-payment-btn:hover {
+            background: #219a52;
+        }
+        .send-info-btn {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .send-info-btn:hover {
+            background: #8e44ad;
+        }
+        .history-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .history-btn:hover {
+            background: #7f8c8d;
+        }
+        .confirm-delivery-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            position: relative;
+        }
+        .confirm-delivery-btn:hover {
+            background: #e67e22;
+        }
+        .messenger-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .telegram-btn {
+            background: #26A5E4;
+            color: white;
+        }
+        .telegram-btn:hover {
+            background: #1e8bc3;
+        }
+        .whatsapp-btn {
+            background: #25D366;
+            color: white;
+        }
+        .whatsapp-btn:hover {
+            background: #1da851;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 20px;
+            width: 400px;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .history-modal {
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .history-table th, .history-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-table th {
+            background: #f5f5f5;
+        }
+        .delivery-menu {
+            position: relative;
+            display: inline-block;
+        }
+        .delivery-menu-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .delivery-menu-content button {
+            width: 100%;
+            padding: 10px;
+            text-align: left;
+            border: none;
+            background: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .delivery-menu-content button:hover {
+            background: #f0f0f0;
+        }
+        .delivery-menu:hover .delivery-menu-content {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -36,14 +250,36 @@
         <div class="nav-links">
             <a href="/">📊 Главная</a>
             <a href="/products">🛍️ Товары</a>
-            <a href="/orders">📦 Заказы</a>
+            <a href="/orders" class="active">📦 Заказы</a>
             <a href="/customers">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
         </div>
         
         <button class="back-btn" onclick="window.location.href='/orders'">← Назад к заказам</button>
         
         <div id="order-detail">
             <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <!-- Модальное окно загрузки файла для подтверждения оплаты -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePaymentModal()">&times;</span>
+            <h3>Подтверждение оплаты</h3>
+            <p>Загрузите чек, скриншот или выписку (PNG, JPEG, PDF)</p>
+            <input type="file" id="payment_file" accept=".png,.jpg,.jpeg,.pdf">
+            <button onclick="uploadPaymentProof()" style="margin-top: 10px;">Подтвердить оплату</button>
+            <div id="paymentError" style="color: red;"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно истории статусов -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content history-modal">
+            <span class="close" onclick="closeHistoryModal()">&times;</span>
+            <h3>История изменения статусов</h3>
+            <div id="history-content">Загрузка...</div>
         </div>
     </div>
 
@@ -57,135 +293,6 @@
         
         let orderData = null;
         
-        function getStatusBadge(status) {
-            if (status === 'paid') return '<span class="status-paid">✅ Оплачен</span>';
-            if (status === 'not_paid') return '<span class="status-not_paid">⏳ Не оплачен</span>';
-            if (status === 'delivered') return '<span class="status-delivered">🚚 Доставлен</span>';
-            return status;
-        }
-        
-        async function loadOrder() {
-            try {
-                const response = await fetch(`/api/orders/${order_id}`);
-                if (!response.ok) {
-                    throw new Error('Заказ не найден');
-                }
-                orderData = await response.json();
-                
-                // Формируем таблицу товаров
-                let itemsHtml = '<h3>Товары в заказе</h3><table class="items-table"><thead><tr><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>';
-                if (orderData.items && orderData.items.length > 0) {
-                    for (let i = 0; i < orderData.items.length; i++) {
-                        const item = orderData.items[i];
-                        const itemTotal = item.price * item.quantity;
-                        itemsHtml += '<tr>';
-                        itemsHtml += '<td>' + (item.product_name || '—') + '</td>';
-                        itemsHtml += '<td>' + (item.quantity || 0) + ' шт</td>';
-                        itemsHtml += '<td>' + (item.price ? item.price.toLocaleString() : '0') + ' ₽</td>';
-                        itemsHtml += '<td>' + (itemTotal.toLocaleString()) + ' ₽</td>';
-                        itemsHtml += '</tr>';
-                    }
-                } else {
-                    itemsHtml += '<tr><td colspan="4">Нет товаров</td></tr>';
-                }
-                itemsHtml += '</tbody></table>';
-                
-                const addressText = orderData.customer_address || '—';
-                const commentText = orderData.comment || '—';
-                const deliveryMethod = orderData.delivery_method || 'Курьер';
-                const notPaidSelected = orderData.status === 'not_paid' ? 'selected' : '';
-                const paidSelected = orderData.status === 'paid' ? 'selected' : '';
-                const deliveredSelected = orderData.status === 'delivered' ? 'selected' : '';
-                
-                const html = `
-                    <div class="detail-card">
-                        <h2>📦 Заказ #${orderData.order_id}</h2>
-                        <p><strong>👤 Клиент:</strong> ${orderData.customer_name}</p>
-                        <p><strong>📞 Телефон:</strong> ${orderData.customer_phone}</p>
-                        <p><strong>📍 Адрес:</strong> ${addressText}</p>
-                        <p><strong>🚚 Доставка:</strong> ${deliveryMethod}</p>
-                        <p><strong>📝 Комментарий:</strong> ${commentText}</p>
-                        <p><strong>💰 Сумма:</strong> ${orderData.total_amount.toLocaleString()} ₽</p>
-                        <p><strong>📅 Дата:</strong> ${orderData.created_at}</p>
-                        <p><strong>📊 Статус:</strong> ${getStatusBadge(orderData.status)}</p>
-                        <div style="margin-top: 15px;">
-                            <select id="status-select" class="status-select">
-                                <option value="not_paid" ${notPaidSelected}>⏳ Не оплачен</option>
-                                <option value="paid" ${paidSelected}>✅ Оплачен</option>
-                                <option value="delivered" ${deliveredSelected}>🚚 Доставлен</option>
-                            </select>
-                            <button onclick="updateStatus()">Изменить статус</button>
-                            <button class="pay-btn" onclick="createInvoice()">💳 Оплатить</button>
-                        </div>
-                    </div>
-                    ${itemsHtml}
-                `;
-                
-                document.getElementById('order-detail').innerHTML = html;
-            } catch(e) {
-                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа: ' + e.message + '</p>';
-            }
-        }
-        
-        async function updateStatus() {
-            const status = document.getElementById('status-select').value;
-            try {
-                const response = await fetch(`/api/orders/${order_id}/status`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
-                if (response.ok) {
-                    alert('✅ Статус обновлён');
-                    loadOrder();
-                } else {
-                    alert('❌ Ошибка обновления');
-                }
-            } catch(e) {
-                alert('❌ Ошибка: ' + e.message);
-            }
-        }
-        
-        async function createInvoice() {
-            if (!orderData) {
-                alert('Данные заказа не загружены');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/yoomoney/create-invoice', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_id: parseInt(order_id),
-                        amount: orderData.total_amount
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    window.open(data.payment_url, '_blank');
-                    alert('Счёт создан! Оплатите в открывшемся окне');
-                } else {
-                    alert('Ошибка: ' + (data.detail || 'Неизвестная ошибка'));
-                }
-            } catch(e) {
-                alert('Ошибка: ' + e.message);
-            }
-        }
-        
-        async function logout() {
-            const token = localStorage.getItem('token');
-            if (token) {
-                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
-            }
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
-        
-        // Проверка авторизации
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
             .then(data => {
@@ -197,6 +304,263 @@
                     document.getElementById('userName').textContent = data.user.name;
                 }
             });
+        
+        function getStatusBadge(status) {
+            if (status === 'paid') return '<span class="status-paid">✅ Оплачен</span>';
+            if (status === 'not_paid') return '<span class="status-not_paid">⏳ Не оплачен</span>';
+            if (status === 'delivered') return '<span class="status-delivered">🚚 Доставлен</span>';
+            return status;
+        }
+        
+        function getStatusText(status) {
+            if (status === 'paid') return 'Оплачен';
+            if (status === 'not_paid') return 'Не оплачен';
+            if (status === 'delivered') return 'Доставлен';
+            return status;
+        }
+        
+        function getMessengerButtons() {
+            const phone = orderData ? orderData.customer_phone : null;
+            if (!phone) return '';
+            
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.length < 10) return '';
+            
+            const telegramLink = `https://t.me/+${cleanPhone}`;
+            const whatsappLink = `https://wa.me/${cleanPhone}`;
+            
+            return `
+                <a href="${telegramLink}" target="_blank" class="messenger-btn telegram-btn">📱 Telegram</a>
+                <a href="${whatsappLink}" target="_blank" class="messenger-btn whatsapp-btn">💬 WhatsApp</a>
+            `;
+        }
+        
+        async function sendInfoToCustomer() {
+            try {
+                const response = await fetch(`/api/orders/${order_id}/send-info`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('✅ Информация о заказе отправлена клиенту на email');
+                } else {
+                    alert('❌ Ошибка: ' + (result.detail || 'Неизвестная ошибка'));
+                }
+            } catch(e) {
+                alert('❌ Ошибка подключения к серверу');
+            }
+        }
+        
+        async function confirmDelivery() {
+            if (confirm('Подтвердить доставку заказа?')) {
+                try {
+                    const response = await fetch(`/api/orders/${order_id}/confirm-delivery`, {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        alert('✅ Доставка подтверждена! Статус заказа изменён на "Доставлен"');
+                        loadOrder();
+                    } else {
+                        const error = await response.json();
+                        alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+                    }
+                } catch(e) {
+                    alert('Ошибка подключения к серверу');
+                }
+            }
+        }
+        
+        function cancelDelivery() {
+            alert('Действие отменено');
+        }
+        
+        async function loadOrder() {
+            try {
+                const response = await fetch(`/api/orders/${order_id}`);
+                if (!response.ok) {
+                    throw new Error('Заказ не найден');
+                }
+                orderData = await response.json();
+                
+                let itemsHtml = '<h3>Товары в заказе</h3>';
+                if (orderData.items && orderData.items.length > 0) {
+                    itemsHtml += '<div class="table-container">';
+                    itemsHtml += '<table class="items-table" style="width:100%; border-collapse: collapse; font-size:14px;">';
+                    itemsHtml += '<thead>';
+                    itemsHtml += '<tr style="background:#f5f5f5;">';
+                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">ID товара</th>';
+                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Наименование</th>';
+                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Кол-во</th>';
+                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Цена</th>';
+                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Сумма</th>';
+                    itemsHtml += ' </thead><tbody>';
+                    
+                    for (let i = 0; i < orderData.items.length; i++) {
+                        const item = orderData.items[i];
+                        const itemTotal = item.price * item.quantity;
+                        const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                        itemsHtml += `<tr style="border-bottom:1px solid #eee; ${rowStyle}">`;
+                        itemsHtml += `<td style="padding:12px;">${item.product_id || '—'}</td>`;
+                        itemsHtml += `<td style="padding:12px;"><strong>${item.product_name || '—'}</strong></td>`;
+                        itemsHtml += `<td style="padding:12px;">${item.quantity || 0} шт</td>`;
+                        itemsHtml += `<td style="padding:12px;">${item.price ? item.price.toLocaleString() : '0'} ₽</td>`;
+                        itemsHtml += `<td style="padding:12px; font-weight:bold;">${itemTotal.toLocaleString()} ₽</td>`;
+                        itemsHtml += `</tr>`;
+                    }
+                    itemsHtml += '</tbody></tr></div>';
+                } else {
+                    itemsHtml += '<p>Нет товаров в заказе</p>';
+                }
+                
+                const addressText = orderData.customer_address || '—';
+                const commentText = orderData.comment || '—';
+                const deliveryMethod = orderData.delivery_method || 'Курьер';
+                const isNotPaid = orderData.status === 'not_paid';
+                const isPaid = orderData.status === 'paid';
+                const isDelivered = orderData.status === 'delivered';
+                
+                let actionButtons = '';
+                if (isNotPaid) {
+                    actionButtons = `
+                        <button class="edit-order-btn" onclick="editOrder()">✏️ Редактировать заказ</button>
+                        <button class="confirm-payment-btn" onclick="showPaymentModal()">💳 Подтвердить оплату</button>
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        ${getMessengerButtons()}
+                    `;
+                } else if (isPaid) {
+                    actionButtons = `
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        ${getMessengerButtons()}
+                        <div class="delivery-menu">
+                            <button class="confirm-delivery-btn">🚚 Подтвердить доставку ▼</button>
+                            <div class="delivery-menu-content">
+                                <button onclick="confirmDelivery()">✅ Подтвердить</button>
+                                <button onclick="cancelDelivery()">❌ Отмена</button>
+                            </div>
+                        </div>
+                    `;
+                } else if (isDelivered) {
+                    actionButtons = `
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        ${getMessengerButtons()}
+                    `;
+                }
+                
+                const html = `
+                    <div class="detail-card">
+                        <h2>📦 Заказ #${orderData.order_id}</h2>
+                        <p><strong>👤 Клиент:</strong> ${orderData.customer_name}</p>
+                        <p><strong>📞 Телефон:</strong> ${orderData.customer_phone || '—'}</p>
+                        <p><strong>📧 Email:</strong> ${orderData.customer_email || '—'}</p>
+                        <p><strong>📍 Адрес:</strong> ${addressText}</p>
+                        <p><strong>🚚 Доставка:</strong> ${deliveryMethod}</p>
+                        <p><strong>📝 Комментарий:</strong> ${commentText}</p>
+                        <p><strong>💰 Сумма:</strong> ${orderData.total_amount.toLocaleString()} ₽</p>
+                        <p><strong>📅 Дата:</strong> ${orderData.created_at}</p>
+                        <p><strong>📊 Статус:</strong> ${getStatusBadge(orderData.status)}</p>
+                        <p><strong>👤 Оформил:</strong> ${orderData.created_by_name || '—'}</p>
+                        <div style="margin-top: 15px;">
+                            ${actionButtons}
+                            <button class="history-btn" onclick="showStatusHistory()">📜 История статусов</button>
+                        </div>
+                    </div>
+                    ${itemsHtml}
+                `;
+                
+                document.getElementById('order-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа</p>';
+            }
+        }
+        
+        function editOrder() {
+            window.location.href = `/orders/${order_id}/edit`;
+        }
+        
+        function showPaymentModal() {
+            document.getElementById('paymentModal').style.display = 'block';
+            document.getElementById('payment_file').value = '';
+            document.getElementById('paymentError').textContent = '';
+        }
+        
+        function closePaymentModal() {
+            document.getElementById('paymentModal').style.display = 'none';
+        }
+        
+        async function uploadPaymentProof() {
+            const fileInput = document.getElementById('payment_file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                document.getElementById('paymentError').textContent = 'Выберите файл';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`/api/orders/${order_id}/confirm-payment`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('✅ Оплата подтверждена! Статус заказа изменён на "Оплачен"');
+                    closePaymentModal();
+                    loadOrder();
+                } else {
+                    const error = await response.json();
+                    document.getElementById('paymentError').textContent = error.detail || 'Ошибка';
+                }
+            } catch(e) {
+                document.getElementById('paymentError').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        async function showStatusHistory() {
+            document.getElementById('historyModal').style.display = 'block';
+            document.getElementById('history-content').innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch(`/api/orders/${order_id}/status-history`);
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    document.getElementById('history-content').innerHTML = '<p>История пуста</p>';
+                    return;
+                }
+                
+                let html = '<table class="history-table"><thead><th>Дата</th><th>Старый статус</th><th>Новый статус</th><th>Кто изменил</th></thead><tbody>';
+                for (let i = 0; i < history.length; i++) {
+                    const h = history[i];
+                    html += `<tr style="border-bottom:1px solid #eee;">`;
+                    html += `<td style="padding:8px;">${h.created_at}</td>`;
+                    html += `<td style="padding:8px;">${h.old_status || '—'}<td>`;
+                    html += `<td style="padding:8px;">${h.new_status}</td>`;
+                    html += `<td style="padding:8px;">${h.changed_by || '—'}</td>`;
+                    html += `</tr>`;
+                }
+                html += '</tbody></table>';
+                document.getElementById('history-content').innerHTML = html;
+            } catch(e) {
+                document.getElementById('history-content').innerHTML = '<p>Ошибка загрузки истории</p>';
+            }
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
         
         loadOrder();
     </script>

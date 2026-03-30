@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Новый заказ</title>
+    <title>TimoFey — Редактирование заказа</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -44,6 +44,12 @@
             padding: 5px 10px;
             border-radius: 3px;
             cursor: pointer;
+            margin-left: 10px;
+        }
+        .cart-item-quantity {
+            width: 60px;
+            padding: 5px;
+            margin-left: 10px;
         }
         .add-product {
             display: flex;
@@ -137,33 +143,15 @@
         .search-btn:hover {
             background: #2980b9;
         }
-        .address-autocomplete {
-            position: relative;
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
         }
-        .suggestions-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .suggestions-dropdown div {
-            padding: 8px;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-        }
-        .suggestions-dropdown div:hover {
-            background: #f0f0f0;
-        }
-        .suggestions-dropdown div:last-child {
-            border-bottom: none;
+        .customer-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -191,50 +179,10 @@
         <button class="back-btn" onclick="window.location.href='/orders'">← Назад к заказам</button>
         
         <div class="card form-container">
-            <h2>🛒 Создание нового заказа</h2>
+            <h2>✏️ Редактирование заказа #<span id="order_id"></span></h2>
             
-            <div class="form-group">
-                <label>Клиент</label>
-                <div class="search-section" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <div class="search-select" style="flex: 1;">
-                        <input type="text" id="customer_search" placeholder="Введите имя, телефон или email для поиска клиента" autocomplete="off">
-                        <div id="customer_dropdown" class="dropdown"></div>
-                    </div>
-                    <button class="search-btn" onclick="searchCustomers()">🔍 Найти</button>
-                </div>
-                <div style="margin-top: 5px;">
-                    <a href="#" onclick="showNewCustomerForm()">+ Новый клиент</a>
-                </div>
-            </div>
-            
-            <div id="new-customer-form" style="display:none;">
-                <div class="form-group">
-                    <label>ФИО *</label>
-                    <input type="text" id="new_full_name">
-                </div>
-                <div class="form-group">
-                    <label>Телефон</label>
-                    <div class="phone-prefix">
-                        <span>+</span>
-                        <input type="text" id="new_phone" placeholder="79250000000" maxlength="11">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="new_email">
-                </div>
-                <div class="form-group">
-                    <label>Адрес</label>
-                    <div class="address-autocomplete">
-                        <input type="text" id="new_address" placeholder="Введите адрес (город, улица, дом)" autocomplete="off">
-                        <div id="address_suggestions" class="suggestions-dropdown"></div>
-                    </div>
-                </div>
-                <div class="form-group" id="apartment-group" style="display:none;">
-                    <label>Квартира / офис</label>
-                    <input type="text" id="new_apartment" placeholder="№ квартиры или офиса">
-                </div>
-                <hr>
+            <div class="customer-info" id="customer-info">
+                <p>Загрузка данных клиента...</p>
             </div>
             
             <h3>📦 Товары в заказе</h3>
@@ -267,17 +215,16 @@
                 <textarea id="comment" rows="3"></textarea>
             </div>
             
-            <button class="submit-btn" onclick="createOrder()">✅ Оформить заказ</button>
+            <button class="submit-btn" onclick="updateOrder()">💾 Сохранить изменения</button>
         </div>
     </div>
 
     <script>
+        const order_id = window.location.pathname.split('/')[2];
         const token = localStorage.getItem('token');
-        let currentUser = null;
-        let cart = [];
         let products = [];
-        let customers = [];
-        let selectedCustomer = null;
+        let cart = [];
+        let originalTotal = 0;
         
         if (!token) window.location.href = '/login';
         
@@ -289,7 +236,6 @@
                     localStorage.removeItem('user');
                     window.location.href = '/login';
                 } else {
-                    currentUser = data.user;
                     document.getElementById('userName').textContent = data.user.name;
                 }
             });
@@ -303,12 +249,49 @@
             }
         }
         
-        async function loadCustomers() {
+        async function loadOrder() {
             try {
-                const response = await fetch('/api/customers/');
-                customers = await response.json();
+                const response = await fetch(`/api/orders/${order_id}`);
+                if (!response.ok) throw new Error('Заказ не найден');
+                const order = await response.json();
+                
+                // Проверка статуса (только not_paid можно редактировать)
+                if (order.status !== 'not_paid') {
+                    alert('Редактирование доступно только для неоплаченных заказов');
+                    window.location.href = `/orders/${order_id}`;
+                    return;
+                }
+                
+                document.getElementById('order_id').textContent = order.order_id;
+                document.getElementById('delivery_method').value = order.delivery_method || 'Курьер';
+                document.getElementById('comment').value = order.comment || '';
+                
+                // Отображаем информацию о клиенте
+                document.getElementById('customer-info').innerHTML = `
+                    <h3>👤 Клиент: ${order.customer_name}</h3>
+                    <div class="detail-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                        <div><strong>Телефон:</strong> ${order.customer_phone || '—'}</div>
+                        <div><strong>Email:</strong> ${order.customer_email || '—'}</div>
+                        <div><strong>Адрес:</strong> ${order.customer_address || '—'}</div>
+                    </div>
+                `;
+                
+                // Загружаем товары в корзину
+                cart = [];
+                if (order.items && order.items.length > 0) {
+                    for (let i = 0; i < order.items.length; i++) {
+                        const item = order.items[i];
+                        cart.push({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            price: item.price,
+                            quantity: item.quantity
+                        });
+                    }
+                }
+                renderCart();
             } catch(e) {
-                console.error('Ошибка загрузки клиентов');
+                document.getElementById('customer-info').innerHTML = '<p>❌ Ошибка загрузки заказа</p>';
             }
         }
         
@@ -347,110 +330,6 @@
             dropdown.style.display = 'block';
         }
         
-        function searchCustomers() {
-            const query = document.getElementById('customer_search').value.trim();
-            if (query.length < 2) {
-                alert('Введите минимум 2 символа для поиска');
-                return;
-            }
-            
-            const filtered = customers.filter(c => 
-                c.full_name.toLowerCase().includes(query.toLowerCase()) ||
-                (c.phone && c.phone.toLowerCase().includes(query.toLowerCase())) ||
-                (c.email && c.email.toLowerCase().includes(query.toLowerCase()))
-            );
-            
-            const dropdown = document.getElementById('customer_dropdown');
-            if (filtered.length === 0) {
-                dropdown.innerHTML = '<div style="padding:8px;">Ничего не найдено</div>';
-                dropdown.style.display = 'block';
-                setTimeout(() => dropdown.style.display = 'none', 2000);
-                return;
-            }
-            
-            dropdown.innerHTML = '';
-            filtered.slice(0, 10).forEach(c => {
-                const div = document.createElement('div');
-                div.textContent = `${c.full_name} — ${c.phone || 'без телефона'}`;
-                div.onclick = () => {
-                    selectCustomer(c);
-                    dropdown.style.display = 'none';
-                };
-                dropdown.appendChild(div);
-            });
-            dropdown.style.display = 'block';
-        }
-        
-        function selectCustomer(customer) {
-            selectedCustomer = customer;
-            document.getElementById('customer_search').value = customer.full_name;
-            document.getElementById('new-customer-form').style.display = 'none';
-        }
-        
-        function showNewCustomerForm() {
-            selectedCustomer = null;
-            document.getElementById('customer_search').value = '';
-            document.getElementById('new-customer-form').style.display = 'block';
-        }
-        
-        // Автозаполнение адреса
-        let addressTimeout;
-        
-        async function searchAddress(query) {
-            if (query.length < 3) {
-                document.getElementById('address_suggestions').style.display = 'none';
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/geocoder/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query })
-                });
-                
-                if (!response.ok) return;
-                
-                const suggestions = await response.json();
-                const suggestionsDiv = document.getElementById('address_suggestions');
-                
-                if (suggestions.length === 0) {
-                    suggestionsDiv.style.display = 'none';
-                    return;
-                }
-                
-                suggestionsDiv.innerHTML = '';
-                suggestions.forEach(s => {
-                    const div = document.createElement('div');
-                    div.textContent = s.full_address;
-                    div.onclick = () => {
-                        document.getElementById('new_address').value = s.full_address;
-                        suggestionsDiv.style.display = 'none';
-                        document.getElementById('apartment-group').style.display = 'block';
-                    };
-                    suggestionsDiv.appendChild(div);
-                });
-                suggestionsDiv.style.display = 'block';
-            } catch(e) {
-                console.error('Ошибка поиска адреса:', e);
-            }
-        }
-        
-        const addressInput = document.getElementById('new_address');
-        if (addressInput) {
-            addressInput.addEventListener('input', function(e) {
-                clearTimeout(addressTimeout);
-                const query = e.target.value;
-                addressTimeout = setTimeout(() => searchAddress(query), 300);
-            });
-        }
-        
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.address-autocomplete')) {
-                document.getElementById('address_suggestions').style.display = 'none';
-            }
-        });
-        
         function addToCart() {
             const productId = document.getElementById('product_search').dataset.productId;
             const quantity = parseInt(document.getElementById('quantity').value);
@@ -466,11 +345,6 @@
             
             const product = products.find(p => p.product_id == productId);
             if (!product) return;
-            
-            if (product.stock < quantity) {
-                alert(`Недостаточно товара на складе. Доступно: ${product.stock} шт.`);
-                return;
-            }
             
             const existingItem = cart.find(item => item.product_id == productId);
             if (existingItem) {
@@ -496,6 +370,15 @@
             renderCart();
         }
         
+        function updateQuantity(index, newQuantity) {
+            if (newQuantity < 1) {
+                removeFromCart(index);
+                return;
+            }
+            cart[index].quantity = newQuantity;
+            renderCart();
+        }
+        
         function renderCart() {
             const cartDiv = document.getElementById('cart');
             if (cart.length === 0) {
@@ -513,7 +396,10 @@
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <strong>${item.product_name}</strong><br>
-                            ${item.price.toLocaleString()} ₽ × ${item.quantity} = ${itemTotal.toLocaleString()} ₽
+                            ${item.price.toLocaleString()} ₽ × 
+                            <input type="number" class="cart-item-quantity" value="${item.quantity}" min="1" 
+                                   onchange="updateQuantity(${index}, parseInt(this.value))">
+                            = ${itemTotal.toLocaleString()} ₽
                         </div>
                         <button class="cart-item-remove" onclick="removeFromCart(${index})">🗑️</button>
                     </div>
@@ -523,45 +409,13 @@
             document.getElementById('total').innerHTML = `Итого: ${total.toLocaleString()} ₽`;
         }
         
-        async function createOrder() {
+        async function updateOrder() {
             if (cart.length === 0) {
                 alert('Добавьте товары в заказ');
                 return;
             }
             
-            let customerName = '';
-            let customerPhone = '';
-            let customerAddress = '';
-            let customerEmail = '';
-            
-            if (selectedCustomer) {
-                customerName = selectedCustomer.full_name;
-                customerPhone = selectedCustomer.phone || '';
-                customerAddress = selectedCustomer.address || '';
-                customerEmail = selectedCustomer.email || '';
-            } else {
-                customerName = document.getElementById('new_full_name').value.trim();
-                if (!customerName) {
-                    alert('Введите ФИО клиента');
-                    return;
-                }
-                const phoneInput = document.getElementById('new_phone').value.trim();
-                customerPhone = phoneInput ? '+' + phoneInput : '';
-                
-                let address = document.getElementById('new_address').value.trim();
-                const apartment = document.getElementById('new_apartment').value.trim();
-                if (apartment) {
-                    address += `, кв. ${apartment}`;
-                }
-                customerAddress = address;
-                customerEmail = document.getElementById('new_email').value;
-            }
-            
             const orderData = {
-                customer_name: customerName,
-                customer_phone: customerPhone,
-                customer_address: customerAddress,
-                customer_email: customerEmail,
                 comment: document.getElementById('comment').value,
                 delivery_method: document.getElementById('delivery_method').value,
                 items: cart.map(item => ({
@@ -571,16 +425,16 @@
             };
             
             try {
-                const response = await fetch('/api/orders/', {
-                    method: 'POST',
+                const response = await fetch(`/api/orders/${order_id}/update`, {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(orderData)
                 });
                 
                 if (response.ok) {
                     const result = await response.json();
-                    alert(`✅ Заказ #${result.order_id} создан! Сумма: ${result.total_amount.toLocaleString()} ₽`);
-                    window.location.href = `/orders/${result.order_id}`;
+                    alert(`✅ Заказ #${order_id} обновлён! Новая сумма: ${result.total_amount.toLocaleString()} ₽`);
+                    window.location.href = `/orders/${order_id}`;
                 } else {
                     const error = await response.json();
                     alert(`❌ Ошибка: ${error.detail || 'Неизвестная ошибка'}`);
@@ -599,7 +453,7 @@
         }
         
         loadProducts();
-        loadCustomers();
+        loadOrder();
     </script>
 </body>
 </html>

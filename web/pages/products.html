@@ -6,8 +6,32 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-section input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .search-section button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-section button:hover {
+            background: #2980b9;
+        }
         .import-section {
-            text-align: right;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
             margin-bottom: 20px;
         }
         .import-btn {
@@ -27,6 +51,44 @@
             cursor: not-allowed;
             opacity: 0.6;
         }
+        .export-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .export-btn:hover {
+            background: #e67e22;
+        }
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .products-table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #ddd;
+            font-weight: 600;
+        }
+        .products-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .products-table tr:hover {
+            background: #f9f9f9;
+        }
+        .products-table tr:nth-child(even) {
+            background: #ffffff;
+        }
+        .products-table tr:nth-child(odd) {
+            background: #f9f9f9;
+        }
         .view-btn {
             background: #3498db;
             color: white;
@@ -37,6 +99,19 @@
         }
         .view-btn:hover {
             background: #2980b9;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -61,7 +136,14 @@
             <a href="/employees">👤 Сотрудники</a>
         </div>
         
+        <div class="search-section">
+            <input type="text" id="searchInput" placeholder="Поиск по ID, названию, артикулу, производителю...">
+            <button onclick="searchProducts()">🔍 Найти</button>
+            <button onclick="resetSearch()">✖️ Сброс</button>
+        </div>
+        
         <div class="import-section">
+            <button class="export-btn" onclick="exportToExcel()">📤 Выгрузить в Excel</button>
             <button id="importBtn" class="import-btn" disabled>📂 Импорт из Excel</button>
         </div>
         
@@ -80,29 +162,27 @@
     <script>
         const token = localStorage.getItem('token');
         let currentUser = null;
+        let allProducts = [];
         
         if (!token) {
             window.location.href = '/login';
         }
         
-        async function checkAuthAndPermissions() {
+        async function getCurrentUser() {
             try {
                 const response = await fetch(`/api/auth/check?token=${token}`);
                 const data = await response.json();
-                
                 if (!data.authenticated) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     window.location.href = '/login';
-                    return false;
+                    return null;
                 }
-                
                 currentUser = data.user;
                 document.getElementById('userName').textContent = data.user.name;
                 
-                const hasImportRights = data.user.name === 'Администратор' || data.user.role === 'dev' || data.user.role === 'admin';
+                const hasImportRights = data.user.role === 'dev';
                 const importBtn = document.getElementById('importBtn');
-                
                 if (hasImportRights) {
                     importBtn.disabled = false;
                     importBtn.title = 'Загрузить товары из Excel-файла';
@@ -110,48 +190,95 @@
                     importBtn.disabled = true;
                     importBtn.title = 'У вас нет прав на импорт товаров';
                 }
-                
-                return true;
+                return data.user;
             } catch(e) {
-                console.error('Ошибка проверки авторизации:', e);
-                return false;
+                return null;
             }
         }
         
-        async function loadProducts() {
+        async function loadProducts(query = '') {
             try {
-                const response = await fetch('/api/products/');
+                let url = '/api/products/';
+                if (query && query.trim() !== '') {
+                    url = `/api/products/search?query=${encodeURIComponent(query)}`;
+                }
+                const response = await fetch(url);
                 const products = await response.json();
-                
-                if (products.length === 0) {
-                    document.getElementById('products-table').innerHTML = '<p>📭 Нет товаров в каталоге</p>';
-                    return;
-                }
-                
-                let html = '<table>';
-                html += '<thead> <th>ID</th><th>Артикул</th><th>Название</th><th>Цена</th><th>Остаток</th><th>Действия</th> </thead><tbody>';
-                
-                for (let i = 0; i < products.length; i++) {
-                    const p = products[i];
-                    html += ' 3 ';
-                    html += ' <td>' + p.product_id + '  ';
-                    html += ' <td>' + (p.article || '—') + '  ';
-                    html += ' <td>' + p.name + '  ';
-                    html += ' <td>' + p.price.toLocaleString() + ' ₽  ';
-                    html += ' <td>' + p.stock + ' шт  ';
-                    html += ' <td><button class="view-btn" onclick="viewProduct(' + p.product_id + ')">👁️ Детали</button>  ';
-                    html += '  ';
-                }
-                
-                html += '</tbody>  </div>';
-                document.getElementById('products-table').innerHTML = html;
+                allProducts = products;
+                renderProductsTable(products);
             } catch(e) {
                 document.getElementById('products-table').innerHTML = '<p>❌ Ошибка загрузки товаров</p>';
             }
         }
         
+        function renderProductsTable(products) {
+            if (products.length === 0) {
+                document.getElementById('products-table').innerHTML = '<p>📭 Нет товаров в каталоге</p>';
+                return;
+            }
+            
+            let html = '<table class="products-table">';
+            html += '<thead>';
+            html += '<tr style="background:#f5f5f5;">';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">ID</th>';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Артикул</th>';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Название</th>';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Цена</th>';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Остаток</th>';
+            html += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Действия</th>';
+            html += ' </thead><tbody>';
+            
+            for (let i = 0; i < products.length; i++) {
+                const p = products[i];
+                const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                html += `<tr style="border-bottom:1px solid #eee; ${rowStyle}">`;
+                html += `<td style="padding:12px;">${p.product_id}</td>`;
+                html += `<td style="padding:12px;">${p.article || '—'}</td>`;
+                html += `<td style="padding:12px;"><strong>${p.name}</strong></td>`;
+                html += `<td style="padding:12px;">${p.price.toLocaleString()} ₽</td>`;
+                html += `<td style="padding:12px;">${p.stock} шт</td>`;
+                html += `<td style="padding:12px;"><button class="view-btn" onclick="viewProduct(${p.product_id})">👁️ Детали</button></td>`;
+                html += `</tr>`;
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('products-table').innerHTML = html;
+        }
+        
+        function searchProducts() {
+            const query = document.getElementById('searchInput').value.trim();
+            loadProducts(query);
+        }
+        
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            loadProducts();
+        }
+        
         function viewProduct(id) {
             window.location.href = `/products/${id}`;
+        }
+        
+        async function exportToExcel() {
+            try {
+                const response = await fetch('/api/products/export-excel');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `products_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    alert('✅ Выгрузка завершена');
+                } else {
+                    alert('❌ Ошибка выгрузки');
+                }
+            } catch(e) {
+                alert('❌ Ошибка');
+            }
         }
         
         async function importExcel(file) {
@@ -177,13 +304,10 @@
                     loadProducts();
                 } else {
                     let errorMsg = '❌ Ошибка импорта:\n' + (result.detail || 'Неизвестная ошибка');
-                    if (result.errors_list && result.errors_list.length) {
-                        errorMsg += '\n\nДетали:\n' + result.errors_list.join('\n');
-                    }
                     alert(errorMsg);
                 }
             } catch(e) {
-                alert('❌ Ошибка подключения к серверу\n\nПроверьте:\n1. Сервер запущен\n2. Интернет-соединение');
+                alert('❌ Ошибка подключения к серверу');
             }
         }
         
@@ -194,16 +318,21 @@
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
             const ext = file.name.split('.').pop().toLowerCase();
             if (ext !== 'xlsx' && ext !== 'xls') {
                 alert('❌ Неверный формат файла\n\nПоддерживаемые форматы: .xlsx, .xls');
                 e.target.value = '';
                 return;
             }
-            
             importExcel(file);
             e.target.value = '';
+        });
+        
+        // Поиск по Enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProducts();
+            }
         });
         
         async function logout() {
@@ -216,7 +345,7 @@
             window.location.href = '/login';
         }
         
-        checkAuthAndPermissions().then(() => {
+        getCurrentUser().then(() => {
             loadProducts();
         });
     </script>

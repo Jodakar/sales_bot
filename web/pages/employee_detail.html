@@ -79,6 +79,33 @@
             display: inline-block;
             font-size: 12px;
         }
+        .messenger-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .messenger-btn {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .telegram-btn {
+            background: #26A5E4;
+            color: white;
+        }
+        .telegram-btn:hover {
+            background: #1e8bc3;
+        }
+        .whatsapp-btn {
+            background: #25D366;
+            color: white;
+        }
+        .whatsapp-btn:hover {
+            background: #1da851;
+        }
     </style>
 </head>
 <body>
@@ -113,24 +140,21 @@
         const employee_id = window.location.pathname.split('/').pop();
         const token = localStorage.getItem('token');
         
-        if (!token) window.location.href = '/login';
+        if (!token) {
+            window.location.href = '/login';
+        }
         
-        async function getCurrentUser() {
-            try {
-                const response = await fetch(`/api/auth/check?token=${token}`);
-                const data = await response.json();
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
                 if (!data.authenticated) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     window.location.href = '/login';
-                    return null;
+                } else {
+                    document.getElementById('userName').textContent = data.user.name;
                 }
-                document.getElementById('userName').textContent = data.user.name;
-                return data.user;
-            } catch(e) {
-                return null;
-            }
-        }
+            });
         
         function getRoleBadge(role) {
             if (role === 'dev') return '<span class="role-dev">Разработчик</span>';
@@ -143,11 +167,41 @@
             return '<span class="inactive-badge">Неактивен</span>';
         }
         
+        function getTelegramLink(phone) {
+            if (!phone) return null;
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.length < 10) return null;
+            return `https://t.me/+${cleanPhone}`;
+        }
+        
+        function getWhatsAppLink(phone) {
+            if (!phone) return null;
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.length < 10) return null;
+            return `https://wa.me/${cleanPhone}`;
+        }
+        
         async function loadEmployee() {
             try {
                 const response = await fetch(`/api/employees/${employee_id}`);
                 if (!response.ok) throw new Error('Сотрудник не найден');
                 const employee = await response.json();
+                
+                let messengerHtml = '';
+                const telegramLink = getTelegramLink(employee.phone);
+                const whatsappLink = getWhatsAppLink(employee.phone);
+                
+                if (telegramLink) {
+                    messengerHtml += `<a href="${telegramLink}" target="_blank" class="messenger-btn telegram-btn">📱 Telegram</a>`;
+                }
+                if (whatsappLink) {
+                    messengerHtml += `<a href="${whatsappLink}" target="_blank" class="messenger-btn whatsapp-btn">💬 WhatsApp</a>`;
+                }
+                if (!telegramLink && !whatsappLink) {
+                    messengerHtml = '<span class="detail-item">—</span>';
+                } else {
+                    messengerHtml = `<div class="messenger-buttons">${messengerHtml}</div>`;
+                }
                 
                 const html = `
                     <div class="detail-card">
@@ -159,6 +213,7 @@
                             <div class="detail-item"><strong>Роль:</strong> ${getRoleBadge(employee.role)}</div>
                             <div class="detail-item"><strong>Статус:</strong> ${getStatusBadge(employee.is_active)}</div>
                             <div class="detail-item"><strong>Дата регистрации:</strong> ${employee.created_at || '—'}</div>
+                            <div class="detail-item"><strong>Связь:</strong> ${messengerHtml}</div>
                         </div>
                     </div>
                 `;
@@ -171,13 +226,15 @@
         
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
         
-        getCurrentUser().then(() => loadEmployee());
+        loadEmployee();
     </script>
 </body>
 </html>

@@ -6,25 +6,158 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .search-section { display: flex; gap: 10px; margin-bottom: 20px; }
-        .search-section input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .search-section button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-        .add-customer { text-align: right; margin-bottom: 20px; }
-        .add-customer button { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-        .customers-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .customers-table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-weight: 600; }
-        .customers-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .customers-table tr:hover { background: #f9f9f9; }
-        .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
-        .edit-btn { background: #f39c12; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-right: 5px; }
-        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
-        .nav-links a.active { background: #667eea; color: white; }
-        .table-container { overflow-x: auto; }
-        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 500px; border-radius: 10px; position: relative; }
-        .modal-content input { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .close { position: absolute; top: 10px; right: 20px; cursor: pointer; font-size: 24px; }
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-section input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .search-section button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .search-section button:hover {
+            background: #2980b9;
+        }
+        .add-customer {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .add-customer button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .add-customer button:hover {
+            background: #219a52;
+        }
+        .customers-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .customers-table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #ddd;
+            font-weight: 600;
+        }
+        .customers-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .customers-table tr:hover {
+            background: #f9f9f9;
+        }
+        .customers-table tr:nth-child(even) {
+            background: #ffffff;
+        }
+        .customers-table tr:nth-child(odd) {
+            background: #f9f9f9;
+        }
+        .view-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .view-btn:hover {
+            background: #2980b9;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            width: 500px;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .phone-prefix {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .phone-prefix span {
+            background: #f5f5f5;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .phone-prefix input {
+            flex: 1;
+            maxlength="11";
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +184,7 @@
         <div class="search-section">
             <input type="text" id="searchInput" placeholder="Поиск по имени, телефону, email...">
             <button onclick="searchCustomers()">🔍 Найти</button>
+            <button onclick="resetSearch()">✖️ Сброс</button>
         </div>
         
         <div class="add-customer">
@@ -71,21 +205,30 @@
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
             <h3>Добавить клиента</h3>
-            <input type="text" id="add_full_name" placeholder="ФИО *">
-            <input type="text" id="add_phone" placeholder="Телефон">
-            <input type="email" id="add_email" placeholder="Email">
-            <input type="text" id="add_address" placeholder="Адрес">
-            <input type="text" id="add_telegram" placeholder="Telegram">
-            <input type="text" id="add_whatsapp" placeholder="WhatsApp">
-            <button onclick="addCustomer()">Сохранить</button>
+            <label>ФИО *</label>
+            <input type="text" id="add_full_name">
+            <label>Телефон</label>
+            <div class="phone-prefix">
+                <span>+</span>
+                <input type="text" id="add_phone" placeholder="79250000000" maxlength="11">
+            </div>
+            <label>Email</label>
+            <input type="email" id="add_email">
+            <label>Адрес</label>
+            <input type="text" id="add_address" placeholder="Город, улица, дом, квартира">
+            <button onclick="addCustomer()" style="margin-top: 20px;">Сохранить</button>
             <button onclick="closeAddModal()">Отмена</button>
-            <div id="addError" class="error" style="color: red;"></div>
+            <div id="addError" class="error"></div>
         </div>
     </div>
 
     <script>
         const token = localStorage.getItem('token');
-        if (!token) window.location.href = '/login';
+        let currentUser = null;
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
         
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
@@ -95,40 +238,62 @@
                     localStorage.removeItem('user');
                     window.location.href = '/login';
                 } else {
+                    currentUser = data.user;
                     document.getElementById('userName').textContent = data.user.name;
                 }
             });
         
+        function renderCustomersTable(customers) {
+            if (!customers || customers.length === 0) {
+                document.getElementById('customers-table').innerHTML = '<p>📭 Нет клиентов</p>';
+                return;
+            }
+            
+            let html = '<table class="customers-table">';
+            html += '<thead><tr style="background:#f5f5f5;">';
+            html += '<th style="padding:12px; text-align:left;">ID</th>';
+            html += '<th style="padding:12px; text-align:left;">ФИО</th>';
+            html += '<th style="padding:12px; text-align:left;">Телефон</th>';
+            html += '<th style="padding:12px; text-align:left;">Email</th>';
+            html += '<th style="padding:12px; text-align:left;">Адрес</th>';
+            html += '<th style="padding:12px; text-align:left;">Заказов</th>';
+            html += '<th style="padding:12px; text-align:left;">Действия</th>';
+            html += ' </thead><tbody>';
+            
+            for (let i = 0; i < customers.length; i++) {
+                const c = customers[i];
+                const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                html += '<tr style="border-bottom:1px solid #eee; ' + rowStyle + '">';
+                html += '<td style="padding:12px;">' + c.customer_id + '</td>';
+                html += '<td style="padding:12px;"><strong>' + c.full_name + '</strong></td>';
+                html += '<td style="padding:12px;">' + (c.phone || '—') + '</td>';
+                html += '<td style="padding:12px;">' + (c.email || '—') + '</td>';
+                html += '<td style="padding:12px;">' + (c.address || '—') + '</td>';
+                html += '<td style="padding:12px;">' + (c.orders_count || 0) + '</td>';
+                html += '<td style="padding:12px;">';
+                html += '<button class="view-btn" onclick="viewCustomer(' + c.customer_id + ')">👁️ Детали</button>';
+                html += '<button class="edit-btn" onclick="editCustomer(' + c.customer_id + ')">✏️</button>';
+                html += '</td>';
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('customers-table').innerHTML = html;
+        }
+        
         async function loadCustomers(query = '') {
             try {
                 let url = '/api/customers/';
-                if (query) url = `/api/customers/search?query=${encodeURIComponent(query)}`;
+                if (query && query.trim() !== '') {
+                    url = `/api/customers/search?query=${encodeURIComponent(query)}`;
+                }
                 const response = await fetch(url);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const customers = await response.json();
-                
-                if (customers.length === 0) {
-                    document.getElementById('customers-table').innerHTML = '<p>📭 Нет клиентов</p>';
-                    return;
-                }
-                
-                let html = '<table class="customers-table"><thead> <th>ID</th><th>ФИО</th><th>Телефон</th><th>Email</th><th>Заказов</th><th>Действия</th> </thead><tbody>';
-                for (let i = 0; i < customers.length; i++) {
-                    const c = customers[i];
-                    html += ' 3 ';
-                    html += ' <td>' + c.customer_id + '  ';
-                    html += ' <td>' + c.full_name + '  ';
-                    html += ' <td>' + (c.phone || '—') + '  ';
-                    html += ' <td>' + (c.email || '—') + '  ';
-                    html += ' <td>' + (c.orders_count || 0) + '  ';
-                    html += ' <td><button class="view-btn" onclick="viewCustomer(' + c.customer_id + ')">👁️ Детали</button>';
-                    html += '<button class="edit-btn" onclick="editCustomer(' + c.customer_id + ')">✏️</button>';
-                    html += '<button class="delete-btn" onclick="deleteCustomer(' + c.customer_id + ')">🗑️</button></td>';
-                    html += '  ';
-                }
-                html += '</tbody> </div>';
-                document.getElementById('customers-table').innerHTML = html;
+                renderCustomersTable(customers);
             } catch(e) {
-                document.getElementById('customers-table').innerHTML = '<p>❌ Ошибка загрузки клиентов</p>';
+                console.error('Ошибка загрузки клиентов:', e);
+                document.getElementById('customers-table').innerHTML = '<p>❌ Ошибка загрузки клиентов: ' + e.message + '</p>';
             }
         }
         
@@ -137,38 +302,59 @@
             loadCustomers(query);
         }
         
-        function viewCustomer(id) { window.location.href = `/customers/${id}`; }
-        function editCustomer(id) { window.location.href = `/customers/${id}`; }
-        
-        function deleteCustomer(id) {
-            if (!confirm('Удалить клиента? У него не должно быть заказов.')) return;
-            fetch(`/api/customers/${id}`, { method: 'DELETE' })
-                .then(res => res.ok ? (alert('✅ Клиент удалён'), loadCustomers()) : alert('❌ Ошибка удаления'));
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            loadCustomers();
         }
         
-        function showAddModal() { document.getElementById('addModal').style.display = 'block'; }
+        function viewCustomer(id) {
+            window.location.href = `/customers/${id}`;
+        }
+        
+        function editCustomer(id) {
+            window.location.href = `/customers/${id}/edit`;
+        }
+        
+        function showAddModal() {
+            document.getElementById('addModal').style.display = 'block';
+        }
+        
         function closeAddModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('add_full_name').value = '';
             document.getElementById('add_phone').value = '';
             document.getElementById('add_email').value = '';
             document.getElementById('add_address').value = '';
-            document.getElementById('add_telegram').value = '';
-            document.getElementById('add_whatsapp').value = '';
             document.getElementById('addError').textContent = '';
         }
         
         async function addCustomer() {
             const full_name = document.getElementById('add_full_name').value.trim();
-            if (!full_name) { document.getElementById('addError').textContent = 'Введите ФИО'; return; }
+            if (!full_name) {
+                document.getElementById('addError').textContent = 'Введите ФИО';
+                return;
+            }
+            
+            const phoneInput = document.getElementById('add_phone').value.trim();
+            if (phoneInput && !/^\d{11}$/.test(phoneInput)) {
+                document.getElementById('addError').textContent = 'Телефон должен содержать ровно 11 цифр (без +)';
+                return;
+            }
+            const phone = phoneInput ? '+' + phoneInput : null;
+            
+            const email = document.getElementById('add_email').value.trim();
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                document.getElementById('addError').textContent = 'Введите корректный email (должен содержать @ и .)';
+                return;
+            }
+            
             const customer = {
                 full_name: full_name,
-                phone: document.getElementById('add_phone').value || null,
-                email: document.getElementById('add_email').value || null,
-                address: document.getElementById('add_address').value || null,
-                telegram: document.getElementById('add_telegram').value || null,
-                whatsapp: document.getElementById('add_whatsapp').value || null
+                phone: phone,
+                email: email || null,
+                address: document.getElementById('add_address').value || null
             };
+            
             try {
                 const response = await fetch('/api/customers/', {
                     method: 'POST',
@@ -183,12 +369,22 @@
                     const error = await response.json();
                     document.getElementById('addError').textContent = error.detail || 'Ошибка добавления';
                 }
-            } catch(e) { document.getElementById('addError').textContent = 'Ошибка подключения к серверу'; }
+            } catch(e) {
+                document.getElementById('addError').textContent = 'Ошибка подключения к серверу';
+            }
         }
+        
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCustomers();
+            }
+        });
         
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

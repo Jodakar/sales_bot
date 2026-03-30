@@ -6,15 +6,180 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .detail-card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .back-btn { background: #95a5a6; margin-bottom: 20px; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; color: white; }
-        .back-btn:hover { background: #7f8c8d; }
-        .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f5f5f5; }
+        .detail-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+        }
+        .detail-item strong {
+            color: #333;
+            min-width: 140px;
+            display: inline-block;
+        }
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .orders-table th, .orders-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .orders-table th {
+            background: #f5f5f5;
+        }
+        .view-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .view-btn:hover {
+            background: #2980b9;
+        }
+        .status-paid {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .status-not_paid {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .status-delivered {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .messenger-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .messenger-btn {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .telegram-btn {
+            background: #26A5E4;
+            color: white;
+        }
+        .telegram-btn:hover {
+            background: #1e8bc3;
+        }
+        .whatsapp-btn {
+            background: #25D366;
+            color: white;
+        }
+        .whatsapp-btn:hover {
+            background: #1da851;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .history-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .history-btn:hover {
+            background: #7f8c8d;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 10px;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .history-table th, .history-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-table th {
+            background: #f5f5f5;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +199,8 @@
             <a href="/">📊 Главная</a>
             <a href="/products">🛍️ Товары</a>
             <a href="/orders">📦 Заказы</a>
-            <a href="/customers">👥 Клиенты</a>
+            <a href="/customers" class="active">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
         </div>
         
         <button class="back-btn" onclick="window.location.href='/customers'">← Назад к клиентам</button>
@@ -44,10 +210,21 @@
         </div>
     </div>
 
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeHistoryModal()">&times;</span>
+            <h3>📜 История изменений клиента</h3>
+            <div id="history-content">Загрузка...</div>
+        </div>
+    </div>
+
     <script>
-        const customer_id = {{customer_id}};
+        const customer_id = window.location.pathname.split('/').pop();
         const token = localStorage.getItem('token');
-        if (!token) window.location.href = '/login';
+        
+        if (!token) {
+            window.location.href = '/login';
+        }
         
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
@@ -68,48 +245,133 @@
             return status;
         }
         
+        function getTelegramLink(phone) {
+            if (!phone) return null;
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.length < 10) return null;
+            return `https://t.me/+${cleanPhone}`;
+        }
+        
+        function getWhatsAppLink(phone) {
+            if (!phone) return null;
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.length < 10) return null;
+            return `https://wa.me/${cleanPhone}`;
+        }
+        
+        function viewOrder(orderId) {
+            window.location.href = `/orders/${orderId}`;
+        }
+        
+        async function showHistory() {
+            document.getElementById('historyModal').style.display = 'block';
+            document.getElementById('history-content').innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch(`/api/customers/${customer_id}/history`);
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    document.getElementById('history-content').innerHTML = '<p>История пуста</p>';
+                    return;
+                }
+                
+                let html = '<table class="history-table"><thead><th>Дата</th><th>Поле</th><th>Было</th><th>Стало</th><th>Кто изменил</th></thead><tbody>';
+                for (let i = 0; i < history.length; i++) {
+                    const h = history[i];
+                    html += `<tr style="border-bottom:1px solid #eee;">`;
+                    html += `<td style="padding:8px;">${h.created_at}  ';
+                    html += `<td style="padding:8px;">${h.field_name}  ';
+                    html += `<td style="padding:8px;">${h.old_value || '—'}  ';
+                    html += `<td style="padding:8px;">${h.new_value || '—'}  ';
+                    html += `<td style="padding:8px;">${h.changed_by || '—'}  ';
+                    html += `  ';
+                }
+                html += '</tbody>  </div>';
+                document.getElementById('history-content').innerHTML = html;
+            } catch(e) {
+                document.getElementById('history-content').innerHTML = '<p>Ошибка загрузки истории</p>';
+            }
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+        
         async function loadCustomer() {
             try {
                 const response = await fetch(`/api/customers/${customer_id}`);
+                if (!response.ok) throw new Error('Клиент не найден');
                 const customer = await response.json();
                 
-                let ordersHtml = '<h3>📋 Заказы клиента</h3><table><thead><tr><th>№</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead><tbody>';
-                if (customer.orders && customer.orders.length > 0) {
-                    customer.orders.forEach(o => {
-                        ordersHtml += `<tr>
-                            <td><a href="/orders/${o.order_id}">#${o.order_id}</a></td>
-                            <td>${o.total_amount.toLocaleString()} ₽</td>
-                            <td>${getStatusBadge(o.status)}</td>
-                            <td>${o.created_at}</td>
-                        </tr>`;
-                    });
-                } else {
-                    ordersHtml += '<tr><td colspan="4">Нет заказов</td></tr>';
-                }
-                ordersHtml += '</tbody></table>';
+                let messengerHtml = '';
+                const telegramLink = getTelegramLink(customer.phone);
+                const whatsappLink = getWhatsAppLink(customer.phone);
                 
-                document.getElementById('customer-detail').innerHTML = `
+                if (telegramLink) {
+                    messengerHtml += `<a href="${telegramLink}" target="_blank" class="messenger-btn telegram-btn">📱 Telegram</a>`;
+                }
+                if (whatsappLink) {
+                    messengerHtml += `<a href="${whatsappLink}" target="_blank" class="messenger-btn whatsapp-btn">💬 WhatsApp</a>`;
+                }
+                if (!telegramLink && !whatsappLink) {
+                    messengerHtml = '<span class="detail-item">—</span>';
+                } else {
+                    messengerHtml = `<div class="messenger-buttons">${messengerHtml}</div>`;
+                }
+                
+                let ordersHtml = '';
+                if (customer.orders && customer.orders.length > 0) {
+                    ordersHtml = `
+                        <h3>📋 Заказы клиента</h3>
+                        <table class="orders-table">
+                            <thead>
+                                 <th>№ заказа</th><th>Сумма</th><th>Статус</th><th>Дата</th><th>Действия</th>
+                            </thead>
+                            <tbody>
+                                ${customer.orders.map(order => `
+                                     <td>#${order.order_id}  <td>${order.total_amount.toLocaleString()} ₽  <td>${getStatusBadge(order.status)}  <td>${order.created_at}  <td><button class="view-btn" onclick="viewOrder(${order.order_id})">👁️ Детали</button>  
+                                `).join('')}
+                            </tbody>
+                         </div>
+                    `;
+                } else {
+                    ordersHtml = '<p>Нет заказов</p>';
+                }
+                
+                const html = `
                     <div class="detail-card">
                         <h2>👤 ${customer.full_name}</h2>
-                        <p><strong>📞 Телефон:</strong> ${customer.phone || '—'}</p>
-                        <p><strong>📧 Email:</strong> ${customer.email || '—'}</p>
-                        <p><strong>📍 Адрес:</strong> ${customer.address || '—'}</p>
-                        <p><strong>📱 Telegram:</strong> ${customer.telegram || '—'}</p>
-                        <p><strong>💬 WhatsApp:</strong> ${customer.whatsapp || '—'}</p>
-                        <p><strong>📅 Дата регистрации:</strong> ${customer.created_at || '—'}</p>
-                        <p><strong>🕒 Последний заказ:</strong> ${customer.last_order_date || '—'}</p>
-                        <hr>
-                        ${ordersHtml}
+                        <div class="detail-grid">
+                            <div class="detail-item"><strong>Email:</strong> ${customer.email || '—'}</div>
+                            <div class="detail-item"><strong>Телефон:</strong> ${customer.phone || '—'}</div>
+                            <div class="detail-item"><strong>Адрес:</strong> ${customer.address || '—'}</div>
+                            <div class="detail-item"><strong>Связь:</strong> ${messengerHtml}</div>
+                            <div class="detail-item"><strong>Дата регистрации:</strong> ${customer.created_at || '—'}</div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button class="edit-btn" onclick="editCustomer()">✏️ Редактировать</button>
+                            <button class="history-btn" onclick="showHistory()">📜 История изменений</button>
+                        </div>
                     </div>
+                    ${ordersHtml}
                 `;
+                
+                document.getElementById('customer-detail').innerHTML = html;
             } catch(e) {
-                document.getElementById('customer-detail').innerHTML = '<p>❌ Ошибка загрузки данных клиента</p>';
+                document.getElementById('customer-detail').innerHTML = '<p>❌ Ошибка загрузки данных клиента: ' + e.message + '</p>';
             }
+        }
+        
+        function editCustomer() {
+            window.location.href = `/customers/${customer_id}/edit`;
         }
         
         async function logout() {
             const token = localStorage.getItem('token');
-            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            if (token) {
+                await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';

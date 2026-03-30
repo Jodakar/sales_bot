@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 # Импорт роутеров
-from web.routers import products, orders, customers, auth, yoomoney, employees
+from web.routers import products, orders, customers, auth, yoomoney, employees, geocoder
 
 load_dotenv()
 
@@ -26,6 +26,7 @@ app.include_router(customers.router, prefix="/api/customers", tags=["Клиен�
 app.include_router(auth.router, prefix="/api/auth", tags=["Авторизация"])
 app.include_router(yoomoney.router, prefix="/api/yoomoney", tags=["ЮMoney"])
 app.include_router(employees.router, prefix="/api/employees", tags=["Сотрудники"])
+app.include_router(geocoder.router, prefix="/api/geocoder", tags=["Геокодер"])
 
 
 def read_page(filename: str) -> str:
@@ -69,8 +70,14 @@ async def create_order_page():
 
 @app.get("/orders/{order_id}", response_class=HTMLResponse)
 async def order_detail_page(order_id: int):
-    html = read_page("order_detail.html")
-    return html.replace("{{order_id}}", str(order_id))
+    """Страница деталей заказа"""
+    return read_page("order_detail.html")
+
+
+@app.get("/orders/{order_id}/edit", response_class=HTMLResponse)
+async def order_edit_page(order_id: int):
+    """Страница редактирования заказа"""
+    return read_page("order_edit.html")
 
 
 @app.get("/customers", response_class=HTMLResponse)
@@ -81,8 +88,13 @@ async def customers_page():
 @app.get("/customers/{customer_id}", response_class=HTMLResponse)
 async def customer_detail_page(customer_id: int):
     """Страница деталей клиента"""
-    html = read_page("customer_detail.html")
-    return html.replace("{{customer_id}}", str(customer_id))
+    return read_page("customer_detail.html")
+
+
+@app.get("/customers/{customer_id}/edit", response_class=HTMLResponse)
+async def customer_edit_page(customer_id: int):
+    """Страница редактирования клиента"""
+    return read_page("customer_edit.html")
 
 
 @app.get("/employees", response_class=HTMLResponse)
@@ -94,8 +106,7 @@ async def employees_page():
 @app.get("/employees/{employee_id}", response_class=HTMLResponse)
 async def employee_detail_page(employee_id: int):
     """Страница деталей сотрудника"""
-    html = read_page("employee_detail.html")
-    return html
+    return read_page("employee_detail.html")
 
 
 @app.get("/employees/{employee_id}/edit", response_class=HTMLResponse)

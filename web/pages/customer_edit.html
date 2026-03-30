@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFey — Редактирование клиента</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .edit-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .save-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .save-btn:hover {
+            background: #219a52;
+        }
+        .cancel-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .cancel-btn:hover {
+            background: #7f8c8d;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .phone-prefix {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .phone-prefix span {
+            background: #f5f5f5;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .phone-prefix input {
+            flex: 1;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        .disabled-field {
+            background: #f5f5f5;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFey">
+                <h1>TimoFey</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers" class="active">👥 Клиенты</a>
+            <a href="/employees">👤 Сотрудники</a>
+        </div>
+        
+        <button class="back-btn" onclick="window.location.href='/customers'">← Назад к клиентам</button>
+        
+        <div class="edit-card">
+            <h2>✏️ Редактирование клиента</h2>
+            <div id="edit-form">
+                <p>Загрузка...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const customer_id = window.location.pathname.split('/')[2];
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+        let customerData = null;
+        
+        if (!token) window.location.href = '/login';
+        
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    currentUser = data.user;
+                    document.getElementById('userName').textContent = data.user.name;
+                }
+            });
+        
+        async function loadCustomer() {
+            try {
+                const response = await fetch(`/api/customers/${customer_id}`);
+                if (!response.ok) throw new Error('Клиент не найден');
+                customerData = await response.json();
+                
+                let phoneValue = customerData.phone || '';
+                let phoneNumber = phoneValue.startsWith('+') ? phoneValue.substring(1) : phoneValue;
+                
+                const html = `
+                    <div class="form-group">
+                        <label>ФИО</label>
+                        <input type="text" id="full_name" value="${customerData.full_name}" disabled class="disabled-field">
+                        <small>ФИО изменить нельзя</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Телефон</label>
+                        <div class="phone-prefix">
+                            <span>+</span>
+                            <input type="text" id="phone" value="${phoneNumber}" maxlength="11" pattern="[0-9]{11}" title="Введите 11 цифр">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" value="${customerData.email || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Адрес</label>
+                        <input type="text" id="address" value="${customerData.address || ''}" placeholder="Город, улица, дом, квартира">
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button class="save-btn" onclick="saveCustomer()">💾 Сохранить</button>
+                        <button class="cancel-btn" onclick="window.location.href='/customers/${customer_id}'">Отмена</button>
+                    </div>
+                    <div id="error" class="error"></div>
+                `;
+                
+                document.getElementById('edit-form').innerHTML = html;
+            } catch(e) {
+                document.getElementById('edit-form').innerHTML = '<p>❌ Ошибка загрузки данных клиента</p>';
+            }
+        }
+        
+        async function saveCustomer() {
+            const updateData = {};
+            
+            const phoneInput = document.getElementById('phone').value.trim();
+            
+            // Проверка телефона: если введен, должен быть ровно 11 цифр
+            if (phoneInput && !/^\d{11}$/.test(phoneInput)) {
+                document.getElementById('error').textContent = 'Телефон должен содержать ровно 11 цифр';
+                return;
+            }
+            const phone = phoneInput ? '+' + phoneInput : null;
+            
+            const email = document.getElementById('email').value.trim();
+            
+            // Проверка email: если введен, должен содержать @ и .
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                document.getElementById('error').textContent = 'Введите корректный email (должен содержать @ и .)';
+                return;
+            }
+            
+            const address = document.getElementById('address').value.trim();
+            
+            if (phone !== customerData.phone) updateData.phone = phone;
+            if (email !== (customerData.email || '')) updateData.email = email || null;
+            if (address !== (customerData.address || '')) updateData.address = address || null;
+            
+            if (Object.keys(updateData).length === 0) {
+                document.getElementById('error').textContent = 'Нет данных для сохранения';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/customers/${customer_id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Данные клиента сохранены');
+                    window.location.href = `/customers/${customer_id}`;
+                } else {
+                    const error = await response.json();
+                    document.getElementById('error').textContent = error.detail || 'Ошибка сохранения';
+                }
+            } catch(e) {
+                document.getElementById('error').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+        
+        loadCustomer();
+    </script>
+</body>
+</html>

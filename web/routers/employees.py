@@ -42,12 +42,10 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-def get_current_user(token: str = None):
+def get_current_user():
     """Временная заглушка — получить текущего пользователя из токена"""
     return {"employee_id": 2, "full_name": "Мациев Тимофей Александрович", "role": "dev"}
 
-
-# ========== МАРШРУТЫ ==========
 
 @router.get("/search")
 async def search_employees(query: str):
@@ -69,10 +67,12 @@ async def search_employees(query: str):
             """, (f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"))
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
-            employees = [dict(zip(columns, row)) for row in rows]
-            for e in employees:
-                if e['birth_date']:
-                    e['birth_date'] = e['birth_date'].strftime('%d.%m.%Y')
+            employees = []
+            for row in rows:
+                emp = dict(zip(columns, row))
+                if emp['birth_date']:
+                    emp['birth_date'] = emp['birth_date'].strftime('%d.%m.%Y')
+                employees.append(emp)
             return employees
     finally:
         conn.close()
@@ -92,12 +92,14 @@ async def get_employees():
             """)
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
-            employees = [dict(zip(columns, row)) for row in rows]
-            for e in employees:
-                if e['created_at']:
-                    e['created_at'] = e['created_at'].strftime('%d.%m.%Y %H:%M')
-                if e['birth_date']:
-                    e['birth_date'] = e['birth_date'].strftime('%d.%m.%Y')
+            employees = []
+            for row in rows:
+                employee = dict(zip(columns, row))
+                if employee['created_at']:
+                    employee['created_at'] = employee['created_at'].strftime('%d.%m.%Y %H:%M')
+                if employee['birth_date']:
+                    employee['birth_date'] = employee['birth_date'].strftime('%d.%m.%Y')
+                employees.append(employee)
             return employees
     finally:
         conn.close()
@@ -180,7 +182,6 @@ async def update_employee(employee_id: int, update: EmployeeUpdate):
                 raise HTTPException(status_code=404, detail="Сотрудник не найден")
             
             target_role = target[0]
-            
             is_dev = current_user['role'] == 'dev'
             is_admin = current_user['role'] == 'admin'
             is_manager = current_user['role'] == 'manager'

@@ -6,36 +6,41 @@
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .status-paid { background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px; }
+        .status-not_paid { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px; }
+        .status-delivered { background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px; }
         .view-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
         .view-btn:hover { background: #2980b9; }
         .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 5px; }
         .delete-btn:hover:not(:disabled) { background: #c0392b; }
         .delete-btn:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.5; }
         .orders-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .orders-table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-weight: 600; }
+        .orders-table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; }
         .orders-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
         .orders-table tr:hover { background: #f9f9f9; }
+        .orders-table tr:nth-child(even) { background: #ffffff; }
+        .orders-table tr:nth-child(odd) { background: #f9f9f9; }
         .nav-links a.active { background: #667eea; color: white; }
         .table-container { overflow-x: auto; }
-        .create-order-btn { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
+        .search-section { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-section input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .search-section button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .search-section button:hover { background: #2980b9; }
+        .create-order-btn { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
         .create-order-btn:hover { background: #219a52; }
+        .import-status-btn { background: #f39c12; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; display: inline-block; }
+        .import-status-btn:hover { background: #e67e22; }
+        .import-status-btn:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.6; }
         .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .actions-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .left-actions { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
-            </div>
-            <div class="user-info">
-                <span class="user-name" id="userName"></span>
-                <button class="logout-btn" onclick="logout()">Выйти</button>
-            </div>
+            <div class="logo"><img src="/static/favicon.ico" alt="TimoFey"><h1>TimoFey</h1></div>
+            <div class="user-info"><span class="user-name" id="userName"></span><button class="logout-btn" onclick="logout()">Выйти</button></div>
         </div>
         
         <div class="nav-links">
@@ -46,33 +51,41 @@
             <a href="/employees">👤 Сотрудники</a>
         </div>
         
-        <div style="text-align: right; margin-bottom: 20px;">
-            <a href="/orders/create" class="create-order-btn">➕ Создать заказ</a>
+        <div class="actions-bar">
+            <div class="search-section">
+                <input type="text" id="searchInput" placeholder="Поиск по №, клиенту, телефону, товару, статусу...">
+                <button onclick="searchOrders()">🔍 Найти</button>
+                <button onclick="resetSearch()">✖️ Сброс</button>
+            </div>
+            <div class="left-actions">
+                <a href="/orders/create" class="create-order-btn">➕ Создать заказ</a>
+                <button id="importStatusBtn" class="import-status-btn" disabled>📂 Импорт статусов из Excel</button>
+            </div>
         </div>
         
         <div class="card">
             <h2>📋 Список заказов</h2>
-            <div class="table-container">
-                <div id="orders-table">
-                    <p>Загрузка...</p>
-                </div>
-            </div>
+            <div class="table-container"><div id="orders-table"><p>Загрузка...</p></div></div>
         </div>
     </div>
+    <input type="file" id="statusFileInput" accept=".xlsx, .xls" style="display: none;">
 
     <script>
         const token = localStorage.getItem('token');
+        let currentUser = null;
         if (!token) window.location.href = '/login';
         
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
             .then(data => {
-                if (!data.authenticated) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = '/login';
-                } else {
+                if (!data.authenticated) { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }
+                else {
+                    currentUser = data.user;
                     document.getElementById('userName').textContent = data.user.name;
+                    const hasImportRights = currentUser.role === 'dev' || currentUser.can_upload_excel === true;
+                    const importBtn = document.getElementById('importStatusBtn');
+                    if (hasImportRights) { importBtn.disabled = false; importBtn.title = 'Загрузить статусы заказов из Excel-файла'; }
+                    else { importBtn.disabled = true; importBtn.title = 'У вас нет прав на импорт статусов'; }
                 }
             });
         
@@ -90,71 +103,84 @@
             return null;
         }
         
+        function renderOrdersTable(orders) {
+            if (!orders || orders.length === 0) { document.getElementById('orders-table').innerHTML = '<p>📭 Нет заказов</p>'; return; }
+            const today = new Date();
+            let html = '<table class="orders-table"><thead><tr style="background:#f5f5f5;"><th style="padding:12px;">№</th><th style="padding:12px;">Клиент</th><th style="padding:12px;">Телефон</th><th style="padding:12px;">Сумма</th><th style="padding:12px;">Статус</th><th style="padding:12px;">Дата</th><th style="padding:12px;">Действия</th></thead><tbody>';
+            for (let i = 0; i < orders.length; i++) {
+                const o = orders[i];
+                let canDelete = false;
+                if (o.status === 'not_paid' && o.created_at) {
+                    const orderDate = parseDateFromString(o.created_at);
+                    if (orderDate) canDelete = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24)) >= 30;
+                }
+                const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                html += `<tr style="border-bottom:1px solid #eee; ${rowStyle}"><td style="padding:12px;">${o.order_id}  <td style="padding:12px;">${o.customer_name || '—'}  <td style="padding:12px;">${o.customer_phone || '—'}  <td style="padding:12px;">${o.total_amount ? o.total_amount.toLocaleString() : '0'} ₽  <td style="padding:12px;">${getStatusBadge(o.status)}  <td style="padding:12px;">${o.created_at || '—'}  <td style="padding:12px;"><button class="view-btn" onclick="viewOrder(${o.order_id})">👁️ Детали</button>`;
+                if (canDelete) html += `<button class="delete-btn" onclick="deleteOrder(${o.order_id})">🗑️</button>`;
+                else html += `<button class="delete-btn" disabled>🗑️</button>`;
+                html += `  `;
+            }
+            html += '</tbody>  </div>';
+            document.getElementById('orders-table').innerHTML = html;
+        }
+        
         async function loadOrders() {
             try {
                 const response = await fetch('/api/orders/');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const orders = await response.json();
-                
-                if (orders.length === 0) {
-                    document.getElementById('orders-table').innerHTML = '<p>📭 Нет заказов</p>';
-                    return;
-                }
-                
-                let html = '<table class="orders-table">';
-                html += '<thead> <th>№</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Статус</th><th>Дата</th><th>Действия</th> </thead><tbody>';
-                
-                const today = new Date();
-                
-                for (let i = 0; i < orders.length; i++) {
-                    const o = orders[i];
-                    
-                    let canDelete = false;
-                    if (o.status === 'not_paid' && o.created_at) {
-                        const orderDate = parseDateFromString(o.created_at);
-                        if (orderDate) {
-                            const daysDiff = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
-                            canDelete = daysDiff >= 30;
-                        }
-                    }
-                    
-                    html += ' 3 ';
-                    html += ' <td style="padding:12px;">' + o.order_id + '  ';
-                    html += ' <td style="padding:12px;">' + (o.customer_name || '—') + '  ';
-                    html += ' <td style="padding:12px;">' + (o.customer_phone || '—') + '  ';
-                    html += ' <td style="padding:12px;">' + (o.total_amount ? o.total_amount.toLocaleString() : '0') + ' ₽  ';
-                    html += ' <td style="padding:12px;">' + getStatusBadge(o.status) + '  ';
-                    html += ' <td style="padding:12px;">' + (o.created_at || '—') + '  ';
-                    html += ' <td style="padding:12px;"><button class="view-btn" onclick="viewOrder(' + o.order_id + ')">👁️ Детали</button>';
-                    if (canDelete) {
-                        html += '<button class="delete-btn" onclick="deleteOrder(' + o.order_id + ')">🗑️</button>';
-                    } else {
-                        html += '<button class="delete-btn" disabled>🗑️</button>';
-                    }
-                    html += '  ';
-                    html += '  ';
-                }
-                
-                html += '</tbody>  </div>';
-                document.getElementById('orders-table').innerHTML = html;
+                renderOrdersTable(orders);
             } catch(e) {
-                document.getElementById('orders-table').innerHTML = '<p>❌ Ошибка загрузки заказов</p>';
+                document.getElementById('orders-table').innerHTML = `<p>❌ Ошибка загрузки заказов: ${e.message}</p>`;
             }
         }
         
+        async function searchOrders() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query === '') { loadOrders(); return; }
+            try {
+                const response = await fetch(`/api/orders/search?query=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const orders = await response.json();
+                renderOrdersTable(orders);
+            } catch(e) {
+                document.getElementById('orders-table').innerHTML = `<p>❌ Ошибка поиска: ${e.message}</p>`;
+            }
+        }
+        
+        function resetSearch() { document.getElementById('searchInput').value = ''; loadOrders(); }
         function viewOrder(id) { window.location.href = `/orders/${id}`; }
         
         function deleteOrder(id) {
             if (confirm('Удалить заказ? Это действие нельзя отменить.')) {
                 fetch(`/api/orders/${id}`, { method: 'DELETE' })
-                    .then(res => res.ok ? (alert('✅ Заказ удалён'), loadOrders()) : alert('❌ Ошибка удаления'));
+                    .then(res => res.ok ? (alert('✅ Заказ удалён'), loadOrders()) : alert('❌ Ошибка удаления'))
+                    .catch(err => alert('❌ Ошибка: ' + err.message));
             }
         }
+        
+        document.getElementById('importStatusBtn').addEventListener('click', () => document.getElementById('statusFileInput').click());
+        document.getElementById('statusFileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'xlsx' && ext !== 'xls') { alert('❌ Неверный формат файла\n\nПоддерживаемые форматы: .xlsx, .xls'); e.target.value = ''; return; }
+            const formData = new FormData(); formData.append('file', file);
+            try {
+                const response = await fetch('/api/orders/import-statuses', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+                const result = await response.json();
+                if (response.ok) { alert(`✅ Импорт статусов завершён!\n\nОбновлено: ${result.updated || 0} заказов\nОшибок: ${result.errors || 0}`); loadOrders(); }
+                else alert('❌ Ошибка импорта: ' + (result.detail || 'Неизвестная ошибка'));
+            } catch(e) { alert('❌ Ошибка подключения к серверу'); }
+            e.target.value = '';
+        });
+        
+        document.getElementById('searchInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') searchOrders(); });
         
         async function logout() {
             const token = localStorage.getItem('token');
             if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            localStorage.removeItem('token'); localStorage.removeItem('user');
             window.location.href = '/login';
         }
         
