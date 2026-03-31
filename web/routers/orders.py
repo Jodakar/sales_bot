@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from datetime import datetime
 import sys
@@ -12,6 +12,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from bot.utils.db import get_db_connection
 from bot.utils.email_sender import send_order_info_to_customer as send_email
 from bot.utils.email_sender import send_delivery_notification
+from bot.utils.email_sender import send_delivery_order_notification
 
 router = APIRouter()
 
@@ -20,17 +21,25 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class OrderCreate(BaseModel):
-    customer_name: str
+    customer_name: str = None
     customer_phone: str = None
     customer_email: str = None
     customer_address: str = None
     comment: str = None
     delivery_method: str = "Курьер"
-    items: list
+    items: list = []
 
 
 class OrderStatusUpdate(BaseModel):
     status: str
+
+
+class CommentUpdate(BaseModel):
+    comment: str
+
+
+class SendToDeliveryRequest(BaseModel):
+    delivery_employee_ids: list[int]
 
 
 def get_current_user():
@@ -74,29 +83,49 @@ async def get_orders():
 
 
 @router.get("/search")
-async def search_orders(query: str):
-    if not query or query.strip() == "":
-        return []
+async def search_orders(query: str = "", status: str = ""):
+    """Поиск заказов по запросу и статусу"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            search_term = f"%{query}%"
-            cur.execute("""
-                SELECT DISTINCT o.order_id, o.customer_name, o.customer_phone, o.total_amount, o.status, o.created_at
-                FROM orders o
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                WHERE o.order_id::text ILIKE %s
-                   OR o.customer_name ILIKE %s
-                   OR o.customer_phone ILIKE %s
-                   OR o.customer_email ILIKE %s
-                   OR o.status ILIKE %s
-                   OR oi.product_name ILIKE %s
-                   OR p.name ILIKE %s
-                   OR p.article ILIKE %s
-                ORDER BY o.order_id DESC
-            """, (search_term, search_term, search_term, search_term, 
-                  search_term, search_term, search_term, search_term))
+            conditions = []
+            params = []
+            
+            if query:
+                search_term = f"%{query}%"
+                conditions.append("""
+                    (o.order_id::text ILIKE %s
+                    OR o.customer_name ILIKE %s
+                    OR o.customer_phone ILIKE %s
+                    OR o.customer_email ILIKE %s
+                    OR o.status ILIKE %s
+                    OR oi.product_name ILIKE %s
+                    OR p.name ILIKE %s
+                    OR p.article ILIKE %s)
+                """)
+                params.extend([search_term] * 8)
+            
+            if status:
+                conditions.append("o.status = %s")
+                params.append(status)
+            
+            if not conditions:
+                cur.execute("""
+                    SELECT order_id, customer_name, customer_phone, total_amount, status, created_at
+                    FROM orders
+                    ORDER BY order_id DESC
+                """)
+            else:
+                where_clause = " AND ".join(conditions)
+                cur.execute(f"""
+                    SELECT DISTINCT o.order_id, o.customer_name, o.customer_phone, o.total_amount, o.status, o.created_at
+                    FROM orders o
+                    LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                    LEFT JOIN products p ON oi.product_id = p.product_id
+                    WHERE {where_clause}
+                    ORDER BY o.order_id DESC
+                """, params)
+            
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
             orders = []
@@ -362,7 +391,7 @@ async def send_order_info_to_customer(order_id: int):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT o.order_id, o.customer_name, o.customer_phone, o.customer_email, o.customer_address,
-                       o.comment, o.delivery_method, o.total_amount, o.created_at,
+                       o.comment, o.delivery_method, o.total_amount, o.created_at, o.status,
                        e.full_name as employee_name, e.phone as employee_phone, e.email as employee_email
                 FROM orders o
                 LEFT JOIN employees e ON o.created_by = e.employee_id
@@ -381,12 +410,13 @@ async def send_order_info_to_customer(order_id: int):
                 'comment': order_row[5],
                 'delivery_method': order_row[6],
                 'total_amount': float(order_row[7]),
-                'created_at': order_row[8].strftime('%d.%m.%Y %H:%M') if order_row[8] else None
+                'created_at': order_row[8].strftime('%d.%m.%Y %H:%M') if order_row[8] else None,
+                'status': order_row[9]
             }
             
-            employee_name = order_row[9] or '—'
-            employee_phone = order_row[10] or '—'
-            employee_email = order_row[11] or '—'
+            employee_name = order_row[10] or '—'
+            employee_phone = order_row[11] or '—'
+            employee_email = order_row[12] or '—'
             
             cur.execute("""
                 SELECT product_name, quantity, price
@@ -543,8 +573,43 @@ async def update_order_status(order_id: int, update: OrderStatusUpdate):
         conn.close()
 
 
+@router.patch("/{order_id}/comment")
+async def update_comment(order_id: int, update: CommentUpdate):
+    """Обновление комментария заказа (доступно при любом статусе)"""
+    current_user = get_current_user()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT comment FROM orders WHERE order_id = %s", (order_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+            old_comment = row[0] or ''
+            
+            if old_comment == update.comment:
+                return {"message": "Комментарий не изменён"}
+            
+            cur.execute("UPDATE orders SET comment = %s WHERE order_id = %s", (update.comment, order_id))
+            
+            cur.execute("""
+                INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, file_path)
+                VALUES (%s, 'comment_update', 'comment_update', %s, %s)
+            """, (order_id, current_user['full_name'], f"Было: {old_comment} → Стало: {update.comment}"))
+            
+            conn.commit()
+            return {"message": "Комментарий обновлён", "comment": update.comment}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
 @router.patch("/{order_id}/update")
 async def update_order(order_id: int, update: OrderCreate):
+    """Обновление заказа (только для статуса not_paid)"""
+    current_user = get_current_user()
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -552,32 +617,153 @@ async def update_order(order_id: int, update: OrderCreate):
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Заказ не найден")
+            
             if row[0] != 'not_paid':
                 raise HTTPException(status_code=400, detail="Редактирование доступно только для неоплаченных заказов")
             
             cur.execute("DELETE FROM order_items WHERE order_id = %s", (order_id,))
             total_amount = 0
             for item in update.items:
-                cur.execute("SELECT name, price FROM products WHERE product_id = %s", (item['product_id'],))
+                cur.execute("SELECT name, price, stock FROM products WHERE product_id = %s", (item['product_id'],))
                 product = cur.fetchone()
                 if not product:
                     continue
-                product_name, price = product
+                product_name, price, stock = product
                 quantity = item['quantity']
+                
+                if stock < quantity:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Недостаточно товара '{product_name}'. Доступно: {stock} шт."
+                    )
+                
                 item_total = price * quantity
                 total_amount += item_total
                 cur.execute("""
                     INSERT INTO order_items (order_id, product_id, product_name, quantity, price, total)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (order_id, item['product_id'], product_name, quantity, price, item_total))
+                cur.execute("UPDATE products SET stock = stock - %s WHERE product_id = %s", (quantity, item['product_id']))
             
             cur.execute("""
                 UPDATE orders 
-                SET comment = %s, delivery_method = %s, total_amount = %s
+                SET comment = %s, 
+                    delivery_method = %s, 
+                    total_amount = %s,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE order_id = %s
             """, (update.comment, update.delivery_method, total_amount, order_id))
+            
             conn.commit()
             return {"order_id": order_id, "total_amount": total_amount, "message": "Заказ обновлён"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/{order_id}/send-to-delivery")
+async def send_order_to_delivery(order_id: int, request: SendToDeliveryRequest):
+    """Отправка информации о заказе сотрудникам доставки"""
+    current_user = get_current_user()
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT o.order_id, o.customer_name, o.customer_phone, o.customer_email, o.customer_address,
+                       o.comment, o.delivery_method, o.total_amount, o.created_at, o.status,
+                       e.full_name as employee_name, e.email as employee_email
+                FROM orders o
+                LEFT JOIN employees e ON o.created_by = e.employee_id
+                WHERE o.order_id = %s
+            """, (order_id,))
+            order_row = cur.fetchone()
+            if not order_row:
+                raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+            if order_row[9] != 'paid':
+                raise HTTPException(status_code=400, detail="Отправка в доставку доступна только для оплаченных заказов")
+            
+            cur.execute("""
+                SELECT product_name, quantity, price
+                FROM order_items
+                WHERE order_id = %s
+            """, (order_id,))
+            items = cur.fetchall()
+            
+            order_data = {
+                'order_id': order_row[0],
+                'customer_name': order_row[1],
+                'customer_phone': order_row[2],
+                'customer_email': order_row[3],
+                'customer_address': order_row[4],
+                'comment': order_row[5],
+                'delivery_method': order_row[6],
+                'total_amount': float(order_row[7]),
+                'created_at': order_row[8].strftime('%d.%m.%Y %H:%M') if order_row[8] else None,
+                'status': order_row[9],
+                'items': [{'product_name': i[0], 'quantity': i[1], 'price': float(i[2])} for i in items]
+            }
+            
+            employee_name = order_row[10] or '—'
+            employee_email = order_row[11] or '—'
+            
+            if not request.delivery_employee_ids:
+                raise HTTPException(status_code=400, detail="Выберите хотя бы одного сотрудника доставки")
+            
+            placeholders = ','.join(['%s'] * len(request.delivery_employee_ids))
+            cur.execute(f"""
+                SELECT employee_id, full_name, email
+                FROM employees
+                WHERE employee_id IN ({placeholders}) AND role = 'delivery' AND is_active = true
+            """, request.delivery_employee_ids)
+            delivery_employees = cur.fetchall()
+            
+            if not delivery_employees:
+                raise HTTPException(status_code=400, detail="Выбранные сотрудники не найдены или неактивны")
+            
+            sent_count = 0
+            for emp in delivery_employees:
+                try:
+                    send_delivery_order_notification(
+                        employee_email=emp[2],
+                        employee_name=emp[1],
+                        order_data=order_data,
+                        creator_name=employee_name,
+                        creator_email=employee_email
+                    )
+                    sent_count += 1
+                except Exception as e:
+                    print(f"Ошибка отправки {emp[1]}: {e}")
+            
+            if employee_email and employee_email != '—':
+                try:
+                    send_delivery_order_notification(
+                        employee_email=employee_email,
+                        employee_name=employee_name,
+                        order_data=order_data,
+                        creator_name=employee_name,
+                        creator_email=employee_email,
+                        is_copy=True
+                    )
+                except Exception as e:
+                    print(f"Ошибка отправки копии {employee_name}: {e}")
+            
+            cur.execute("""
+                INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, file_path)
+                VALUES (%s, 'delivery_notification', 'delivery_notification', %s, %s)
+            """, (order_id, current_user['full_name'], f"Уведомление отправлено сотрудникам доставки: {', '.join([e[1] for e in delivery_employees])}"))
+            conn.commit()
+            
+            return {
+                "status": "success",
+                "message": f"Уведомление отправлено {sent_count} сотрудникам доставки",
+                "sent_to": [e[1] for e in delivery_employees]
+            }
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))

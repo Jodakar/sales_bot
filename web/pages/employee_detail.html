@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Сотрудник</title>
+    <title>TimoFeyA — Сотрудник</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -36,7 +36,7 @@
         }
         .detail-item strong {
             color: #333;
-            min-width: 140px;
+            min-width: 160px;
             display: inline-block;
         }
         .role-dev {
@@ -63,6 +63,14 @@
             display: inline-block;
             font-size: 12px;
         }
+        .role-delivery {
+            background: #2c3e50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
         .active-badge {
             background: #27ae60;
             color: white;
@@ -78,6 +86,14 @@
             border-radius: 4px;
             display: inline-block;
             font-size: 12px;
+        }
+        .rights-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .rights-section h3 {
+            margin-bottom: 10px;
         }
         .messenger-buttons {
             display: flex;
@@ -106,14 +122,81 @@
         .whatsapp-btn:hover {
             background: #1da851;
         }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .edit-btn.disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .history-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .history-btn:hover {
+            background: #7f8c8d;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 20px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 10px;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .history-table th, .history-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-table th {
+            background: #f5f5f5;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -136,9 +219,19 @@
         </div>
     </div>
 
+    <!-- Модальное окно истории изменений -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeHistoryModal()">&times;</span>
+            <h3>📜 История изменений сотрудника</h3>
+            <div id="history-content">Загрузка...</div>
+        </div>
+    </div>
+
     <script>
         const employee_id = window.location.pathname.split('/').pop();
         const token = localStorage.getItem('token');
+        let currentUser = null;
         
         if (!token) {
             window.location.href = '/login';
@@ -152,13 +245,26 @@
                     localStorage.removeItem('user');
                     window.location.href = '/login';
                 } else {
+                    currentUser = data.user;
                     document.getElementById('userName').textContent = data.user.name;
+                    loadEmployee();
                 }
             });
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
         
         function getRoleBadge(role) {
             if (role === 'dev') return '<span class="role-dev">Разработчик</span>';
             if (role === 'admin') return '<span class="role-admin">Администратор</span>';
+            if (role === 'delivery') return '<span class="role-delivery">Доставка</span>';
             return '<span class="role-manager">Менеджер</span>';
         }
         
@@ -179,6 +285,60 @@
             const cleanPhone = phone.replace(/[^0-9]/g, '');
             if (cleanPhone.length < 10) return null;
             return `https://wa.me/${cleanPhone}`;
+        }
+        
+        function canEditEmployee(targetEmployee) {
+            if (!currentUser) return false;
+            const isDev = currentUser.role === 'dev';
+            const isAdmin = currentUser.role === 'admin';
+            const isSelf = currentUser.employee_id === targetEmployee.employee_id;
+            const targetRole = targetEmployee.role;
+            
+            if (isDev) return true;
+            if (isAdmin && isSelf) return true;
+            if (isAdmin && (targetRole === 'manager' || targetRole === 'delivery')) return true;
+            if (isAdmin && targetRole === 'admin' && isSelf) return true;
+            if (isAdmin && targetRole === 'dev') return false;
+            if (isSelf && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'delivery')) return true;
+            return false;
+        }
+        
+        async function showHistory() {
+            document.getElementById('historyModal').style.display = 'block';
+            document.getElementById('history-content').innerHTML = 'Загрузка...';
+            
+            try {
+                const response = await fetch(`/api/employees/${employee_id}/history`);
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    document.getElementById('history-content').innerHTML = '<p>История пуста</p>';
+                    return;
+                }
+                
+                let html = '<table class="history-table"><thead> ';
+                html += '<th>Дата</th><th>Поле</th><th>Было</th><th>Стало</th><th>Кто изменил</th>';
+                html += ' </thead><tbody>';
+                
+                for (let i = 0; i < history.length; i++) {
+                    const h = history[i];
+                    html += ' <tr style="border-bottom:1px solid #eee;">';
+                    html += '<td style="padding:8px;">' + escapeHtml(h.created_at) + '<\/td>';
+                    html += '<td style="padding:8px;">' + escapeHtml(h.field_name) + '<\/td>';
+                    html += '<td style="padding:8px;">' + escapeHtml(h.old_value || '—') + '<\/td>';
+                    html += '<td style="padding:8px;">' + escapeHtml(h.new_value || '—') + '<\/td>';
+                    html += '<td style="padding:8px;">' + escapeHtml(h.changed_by || '—') + '<\/td>';
+                    html += '<\/tr>';
+                }
+                html += '</tbody> ';
+                document.getElementById('history-content').innerHTML = html;
+            } catch(e) {
+                document.getElementById('history-content').innerHTML = '<p>Ошибка загрузки истории</p>';
+            }
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
         }
         
         async function loadEmployee() {
@@ -203,25 +363,83 @@
                     messengerHtml = `<div class="messenger-buttons">${messengerHtml}</div>`;
                 }
                 
+                // Блок прав (вертикальный список)
+                let rightsHtml = '';
+                if (employee.role === 'dev') {
+                    rightsHtml = `
+                        <div class="rights-section">
+                            <h3>🔧 Права доступа</h3>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                <div>✅ <strong>Импорт Excel</strong> — загрузка статусов заказов и товаров</div>
+                                <div>✅ <strong>Редактирование реквизитов</strong> — изменение реквизитов компании</div>
+                                <div>✅ <strong>Управление сотрудниками</strong> — создание, редактирование, удаление</div>
+                                <div>✅ <strong>Полный доступ</strong> — ко всем данным системы</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (employee.role === 'admin') {
+                    rightsHtml = `
+                        <div class="rights-section">
+                            <h3>🔧 Права доступа</h3>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                <div>${employee.can_upload_excel ? '✅' : '❌'} <strong>Импорт Excel</strong> — загрузка статусов заказов и товаров</div>
+                                <div>${employee.can_edit_company_details ? '✅' : '❌'} <strong>Редактирование реквизитов</strong> — изменение реквизитов компании</div>
+                                <div>✅ <strong>Управление менеджерами и доставкой</strong> — редактирование их данных</div>
+                                <div>✅ <strong>Редактирование своих данных</strong> — телефон, email, дата рождения</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (employee.role === 'manager' || employee.role === 'delivery') {
+                    rightsHtml = `
+                        <div class="rights-section">
+                            <h3>🔧 Права доступа</h3>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                <div>❌ <strong>Импорт Excel</strong> — загрузка статусов заказов и товаров</div>
+                                <div>❌ <strong>Редактирование реквизитов</strong> — изменение реквизитов компании</div>
+                                <div>✅ <strong>Редактирование своих данных</strong> — телефон, email, дата рождения</div>
+                                <div>✅ <strong>Просмотр заказов и клиентов</strong> — вся информация только для чтения</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const canEdit = canEditEmployee(employee);
+                const isDev = currentUser && currentUser.role === 'dev';
+                const editButton = canEdit ? 
+                    `<button class="edit-btn" onclick="editEmployee()">✏️ Редактировать</button>` : 
+                    `<button class="edit-btn disabled" disabled>✏️ Редактировать (нет прав)</button>`;
+                
+                const historyButton = isDev ? 
+                    `<button class="history-btn" onclick="showHistory()">📜 История изменений</button>` : '';
+                
                 const html = `
                     <div class="detail-card">
-                        <h2>👤 ${employee.full_name}</h2>
+                        <h2>👤 ${escapeHtml(employee.full_name)}</h2>
                         <div class="detail-grid">
-                            <div class="detail-item"><strong>Email:</strong> ${employee.email}</div>
-                            <div class="detail-item"><strong>Телефон:</strong> ${employee.phone || '—'}</div>
-                            <div class="detail-item"><strong>Дата рождения:</strong> ${employee.birth_date || '—'}</div>
+                            <div class="detail-item"><strong>Email:</strong> ${escapeHtml(employee.email)}</div>
+                            <div class="detail-item"><strong>Телефон:</strong> ${escapeHtml(employee.phone || '—')}</div>
+                            <div class="detail-item"><strong>Дата рождения:</strong> ${escapeHtml(employee.birth_date || '—')}</div>
                             <div class="detail-item"><strong>Роль:</strong> ${getRoleBadge(employee.role)}</div>
                             <div class="detail-item"><strong>Статус:</strong> ${getStatusBadge(employee.is_active)}</div>
-                            <div class="detail-item"><strong>Дата регистрации:</strong> ${employee.created_at || '—'}</div>
+                            <div class="detail-item"><strong>Дата регистрации:</strong> ${escapeHtml(employee.created_at || '—')}</div>
                             <div class="detail-item"><strong>Связь:</strong> ${messengerHtml}</div>
+                        </div>
+                        ${rightsHtml}
+                        <div style="margin-top: 20px;">
+                            ${editButton}
+                            ${historyButton}
                         </div>
                     </div>
                 `;
                 
                 document.getElementById('employee-detail').innerHTML = html;
             } catch(e) {
-                document.getElementById('employee-detail').innerHTML = '<p>❌ Ошибка загрузки данных сотрудника</p>';
+                document.getElementById('employee-detail').innerHTML = '<p>❌ Ошибка загрузки данных сотрудника: ' + e.message + '</p>';
             }
+        }
+        
+        function editEmployee() {
+            window.location.href = `/employees/${employee_id}/edit`;
         }
         
         async function logout() {
@@ -233,8 +451,6 @@
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
-        
-        loadEmployee();
     </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Вход</title>
+    <title>TimoFeyA — Вход</title>
     <link rel="icon" href="/static/favicon.ico">
     <style>
         body {
@@ -76,11 +76,11 @@
 <body>
     <div class="login-container">
         <div class="logo">
-            <img src="/static/favicon.ico" alt="TimoFey">
+            <img src="/static/favicon.ico" alt="TimoFeyA">
         </div>
-        <h1>TimoFey</h1>
+        <h1>TimoFeyA</h1>
         <p>Вход в систему</p>
-        <input type="text" id="username" placeholder="Имя пользователя">
+        <input type="email" id="username" placeholder="Email">
         <input type="password" id="password" placeholder="Пароль">
         <div class="checkbox-container">
             <input type="checkbox" id="remember">
@@ -102,13 +102,16 @@
         }
         
         async function login() {
-            const username = document.getElementById('username').value;
+            let username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const remember = document.getElementById('remember').checked;
             const errorDiv = document.getElementById('error');
             
+            // Приводим email к нижнему регистру (убираем чувствительность к регистру)
+            username = username.toLowerCase().trim();
+            
             if (!username || !password) {
-                errorDiv.textContent = 'Введите логин и пароль';
+                errorDiv.textContent = 'Введите email и пароль';
                 return;
             }
             
@@ -122,7 +125,6 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Сохраняем логин и пароль если галочка стоит
                     if (remember) {
                         localStorage.setItem('saved_login', username);
                         localStorage.setItem('saved_password', password);

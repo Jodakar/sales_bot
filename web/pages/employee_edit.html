@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Редактирование сотрудника</title>
+    <title>TimoFeyA — Редактирование сотрудника</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -160,8 +160,8 @@
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -216,11 +216,24 @@
             const uploadCheckbox = document.getElementById('edit_can_upload_excel');
             const editCheckbox = document.getElementById('edit_can_edit_company_details');
             
-            if (roleSelect && roleSelect.value === 'manager') {
-                if (uploadCheckbox) uploadCheckbox.disabled = true;
-                if (editCheckbox) editCheckbox.disabled = true;
-                if (uploadCheckbox) uploadCheckbox.checked = false;
-                if (editCheckbox) editCheckbox.checked = false;
+            if (roleSelect && roleSelect.value === 'dev') {
+                if (uploadCheckbox) {
+                    uploadCheckbox.disabled = true;
+                    uploadCheckbox.checked = true;
+                }
+                if (editCheckbox) {
+                    editCheckbox.disabled = true;
+                    editCheckbox.checked = true;
+                }
+            } else if (roleSelect && (roleSelect.value === 'manager' || roleSelect.value === 'delivery')) {
+                if (uploadCheckbox) {
+                    uploadCheckbox.disabled = true;
+                    uploadCheckbox.checked = false;
+                }
+                if (editCheckbox) {
+                    editCheckbox.disabled = true;
+                    editCheckbox.checked = false;
+                }
             } else {
                 if (uploadCheckbox) uploadCheckbox.disabled = false;
                 if (editCheckbox) editCheckbox.disabled = false;
@@ -256,9 +269,9 @@
                 const isSelf = currentUser && currentUser.employee_id == employee_id;
                 const targetRole = employeeData.role;
                 
-                let canEditPhone = isDev || (isAdmin && (isSelf || targetRole === 'manager')) || (isSelf && !isAdmin);
-                let canEditEmail = isDev || (isAdmin && (isSelf || targetRole === 'manager')) || (isSelf && !isAdmin);
-                let canEditBirthDate = isDev || (isAdmin && (isSelf || targetRole === 'manager')) || (isSelf && !isAdmin);
+                let canEditPhone = isDev || (isAdmin && (isSelf || targetRole === 'manager' || targetRole === 'delivery')) || (isSelf && !isAdmin);
+                let canEditEmail = isDev || (isAdmin && (isSelf || targetRole === 'manager' || targetRole === 'delivery')) || (isSelf && !isAdmin);
+                let canEditBirthDate = isDev || (isAdmin && (isSelf || targetRole === 'manager' || targetRole === 'delivery')) || (isSelf && !isAdmin);
                 let canEditFullName = isDev;
                 let canEditRole = isDev;
                 let canEditRights = isDev;
@@ -275,28 +288,35 @@
                         <option value="dev" ${employeeData.role === 'dev' ? 'selected' : ''}>Разработчик</option>
                         <option value="admin" ${employeeData.role === 'admin' ? 'selected' : ''}>Администратор</option>
                         <option value="manager" ${employeeData.role === 'manager' ? 'selected' : ''}>Менеджер</option>
+                        <option value="delivery" ${employeeData.role === 'delivery' ? 'selected' : ''}>Доставка</option>
+                    `;
+                } else if (isAdmin) {
+                    roleOptions = `
+                        <option value="${employeeData.role}" selected>${employeeData.role === 'admin' ? 'Администратор' : employeeData.role === 'manager' ? 'Менеджер' : employeeData.role === 'delivery' ? 'Доставка' : 'Менеджер'}</option>
+                        <option value="manager">Менеджер</option>
+                        <option value="delivery">Доставка</option>
                     `;
                 } else {
-                    roleOptions = `<option value="${employeeData.role}" selected>${employeeData.role === 'admin' ? 'Администратор' : 'Менеджер'}</option>`;
+                    roleOptions = `<option value="${employeeData.role}" selected>${employeeData.role === 'admin' ? 'Администратор' : employeeData.role === 'manager' ? 'Менеджер' : employeeData.role === 'delivery' ? 'Доставка' : 'Менеджер'}</option>`;
                 }
                 
                 let rightsHtml = '';
                 if (isDev) {
                     rightsHtml = `
                         <div class="checkbox-group">
-                            <input type="checkbox" id="edit_can_upload_excel" ${employeeData.can_upload_excel ? 'checked' : ''}>
-                            <label>Разрешить загрузку Excel</label>
+                            <input type="checkbox" id="edit_can_upload_excel" ${employeeData.can_upload_excel ? 'checked' : ''} disabled>
+                            <label>Разрешить импорт Excel <span class="readonly-badge">только чтение</span></label>
                         </div>
                         <div class="checkbox-group">
-                            <input type="checkbox" id="edit_can_edit_company_details" ${employeeData.can_edit_company_details ? 'checked' : ''}>
-                            <label>Разрешить редактировать реквизиты</label>
+                            <input type="checkbox" id="edit_can_edit_company_details" ${employeeData.can_edit_company_details ? 'checked' : ''} disabled>
+                            <label>Разрешить редактировать реквизиты <span class="readonly-badge">только чтение</span></label>
                         </div>
                     `;
                 } else {
                     rightsHtml = `
                         <div class="checkbox-group">
                             <input type="checkbox" id="edit_can_upload_excel" ${employeeData.can_upload_excel ? 'checked' : ''} disabled>
-                            <label>Разрешить загрузку Excel <span class="readonly-badge">только чтение</span></label>
+                            <label>Разрешить импорт Excel <span class="readonly-badge">только чтение</span></label>
                         </div>
                         <div class="checkbox-group">
                             <input type="checkbox" id="edit_can_edit_company_details" ${employeeData.can_edit_company_details ? 'checked' : ''} disabled>
@@ -330,27 +350,22 @@
                 const html = `
                     <div class="form-group">
                         <label>ФИО</label>
-                        <input type="text" id="edit_full_name" value="${employeeData.full_name}" ${!canEditFullName ? 'disabled' : ''}>
+                        <input type="text" id="edit_full_name" value="${escapeHtml(employeeData.full_name)}" ${!canEditFullName ? 'disabled' : ''}>
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" id="edit_email" value="${employeeData.email}" ${!canEditEmail ? 'disabled' : ''}>
+                        <input type="email" id="edit_email" value="${escapeHtml(employeeData.email)}" ${!canEditEmail ? 'disabled' : ''}>
                     </div>
                     <div class="form-group">
                         <label>Телефон</label>
                         <div class="phone-prefix">
                             <span>+</span>
-                            <input type="text" id="edit_phone" value="${phoneNumber}" ${!canEditPhone ? 'disabled' : ''}>
+                            <input type="text" id="edit_phone" value="${escapeHtml(phoneNumber)}" ${!canEditPhone ? 'disabled' : ''}>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Дата рождения</label>
                         <input type="date" id="edit_birth_date" value="${employeeData.birth_date || ''}" ${!canEditBirthDate ? 'disabled' : ''}>
-                    </div>
-                    <div class="form-group">
-                        <label>Логин</label>
-                        <input type="text" value="${employeeData.login}" disabled class="disabled-field">
-                        <small>Логин изменить нельзя</small>
                     </div>
                     <div class="form-group">
                         <label>Роль</label>
@@ -376,6 +391,16 @@
             } catch(e) {
                 document.getElementById('edit-form').innerHTML = '<p>❌ Ошибка загрузки данных сотрудника</p>';
             }
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
         
         async function saveEmployee() {

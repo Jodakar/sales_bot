@@ -49,13 +49,14 @@ def get_current_user():
 
 @router.get("/search")
 async def search_employees(query: str):
-    """Поиск сотрудников по ФИО, email, телефону, логину"""
+    """Поиск сотрудников по ФИО, email, телефону, логину, роли"""
     if not query or query.strip() == "":
         return []
     
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            search_term = f"%{query}%"
             cur.execute("""
                 SELECT employee_id, full_name, email, phone, birth_date, role, login, is_active
                 FROM employees
@@ -63,8 +64,9 @@ async def search_employees(query: str):
                    OR email ILIKE %s 
                    OR phone ILIKE %s 
                    OR login ILIKE %s
+                   OR role ILIKE %s
                 ORDER BY full_name
-            """, (f"%{query}%", f"%{query}%", f"%{query}%", f"%{query}%"))
+            """, (search_term, search_term, search_term, search_term, search_term))
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
             employees = []
@@ -139,6 +141,16 @@ async def create_employee(employee: EmployeeCreate):
     if current_user['role'] != 'dev':
         raise HTTPException(status_code=403, detail="Доступ запрещён. Только разработчик может создавать сотрудников")
     
+    # Для ролей manager и delivery запрещаем права
+    if employee.role in ['manager', 'delivery']:
+        employee.can_upload_excel = False
+        employee.can_edit_company_details = False
+    
+    # Для разработчика включаем права по умолчанию
+    if employee.role == 'dev':
+        employee.can_upload_excel = True
+        employee.can_edit_company_details = True
+    
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -171,70 +183,139 @@ async def create_employee(employee: EmployeeCreate):
 
 @router.patch("/{employee_id}")
 async def update_employee(employee_id: int, update: EmployeeUpdate):
-    """Обновление данных сотрудника с проверкой прав"""
+    """Обновление данных сотрудника с записью в историю"""
     current_user = get_current_user()
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT role FROM employees WHERE employee_id = %s", (employee_id,))
-            target = cur.fetchone()
-            if not target:
+            # Получаем текущие данные
+            cur.execute("SELECT full_name, email, phone, birth_date, role, can_upload_excel, can_edit_company_details, is_active FROM employees WHERE employee_id = %s", (employee_id,))
+            old = cur.fetchone()
+            if not old:
                 raise HTTPException(status_code=404, detail="Сотрудник не найден")
             
-            target_role = target[0]
+            old_full_name, old_email, old_phone, old_birth_date, old_role, old_can_upload, old_can_edit, old_is_active = old
+            target_role = old_role
             is_dev = current_user['role'] == 'dev'
             is_admin = current_user['role'] == 'admin'
-            is_manager = current_user['role'] == 'manager'
             is_self = current_user['employee_id'] == employee_id
             
             updates = []
             values = []
             
+            # Функция для записи в историю
+            def add_to_history(field, old_val, new_val):
+                if old_val != new_val:
+                    cur.execute("""
+                        INSERT INTO employee_history (employee_id, field_name, old_value, new_value, changed_by)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (employee_id, field, str(old_val) if old_val else None, str(new_val) if new_val else None, current_user['full_name']))
+            
             if is_dev:
-                if update.full_name is not None:
-                    updates.append("full_name = %s"); values.append(update.full_name)
+                if update.full_name is not None and update.full_name != old_full_name:
+                    updates.append("full_name = %s")
+                    values.append(update.full_name)
+                    add_to_history('full_name', old_full_name, update.full_name)
+                
                 if update.phone is not None:
-                    updates.append("phone = %s"); values.append(update.phone if update.phone else None)
+                    new_phone = update.phone if update.phone else None
+                    if new_phone != old_phone:
+                        updates.append("phone = %s")
+                        values.append(new_phone)
+                        add_to_history('phone', old_phone, new_phone)
+                
                 if update.birth_date is not None:
-                    birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
-                    updates.append("birth_date = %s"); values.append(birth_val)
-                if update.email is not None:
-                    updates.append("email = %s"); values.append(update.email)
-                if update.role is not None:
-                    updates.append("role = %s"); values.append(update.role)
-                if update.can_upload_excel is not None:
-                    updates.append("can_upload_excel = %s"); values.append(update.can_upload_excel)
-                if update.can_edit_company_details is not None:
-                    updates.append("can_edit_company_details = %s"); values.append(update.can_edit_company_details)
-                if update.is_active is not None:
-                    updates.append("is_active = %s"); values.append(update.is_active)
+                    new_birth = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                    if new_birth != old_birth_date:
+                        updates.append("birth_date = %s")
+                        values.append(new_birth)
+                        add_to_history('birth_date', old_birth_date, new_birth)
+                
+                if update.email is not None and update.email != old_email:
+                    updates.append("email = %s")
+                    values.append(update.email)
+                    add_to_history('email', old_email, update.email)
+                
+                if update.role is not None and update.role != old_role:
+                    updates.append("role = %s")
+                    values.append(update.role)
+                    add_to_history('role', old_role, update.role)
+                
+                if update.can_upload_excel is not None and update.can_upload_excel != old_can_upload:
+                    updates.append("can_upload_excel = %s")
+                    values.append(update.can_upload_excel)
+                    add_to_history('can_upload_excel', old_can_upload, update.can_upload_excel)
+                
+                if update.can_edit_company_details is not None and update.can_edit_company_details != old_can_edit:
+                    updates.append("can_edit_company_details = %s")
+                    values.append(update.can_edit_company_details)
+                    add_to_history('can_edit_company_details', old_can_edit, update.can_edit_company_details)
+                
+                if update.is_active is not None and update.is_active != old_is_active:
+                    updates.append("is_active = %s")
+                    values.append(update.is_active)
+                    add_to_history('is_active', old_is_active, update.is_active)
             
             elif is_admin:
                 if is_self:
                     if update.phone is not None:
-                        updates.append("phone = %s"); values.append(update.phone if update.phone else None)
+                        new_phone = update.phone if update.phone else None
+                        if new_phone != old_phone:
+                            updates.append("phone = %s")
+                            values.append(new_phone)
+                            add_to_history('phone', old_phone, new_phone)
+                    
                     if update.birth_date is not None:
-                        birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
-                        updates.append("birth_date = %s"); values.append(birth_val)
-                    if update.email is not None:
-                        updates.append("email = %s"); values.append(update.email)
-                elif target_role == 'manager':
+                        new_birth = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                        if new_birth != old_birth_date:
+                            updates.append("birth_date = %s")
+                            values.append(new_birth)
+                            add_to_history('birth_date', old_birth_date, new_birth)
+                    
+                    if update.email is not None and update.email != old_email:
+                        updates.append("email = %s")
+                        values.append(update.email)
+                        add_to_history('email', old_email, update.email)
+                
+                elif target_role in ['manager', 'delivery']:
                     if update.phone is not None:
-                        updates.append("phone = %s"); values.append(update.phone if update.phone else None)
+                        new_phone = update.phone if update.phone else None
+                        if new_phone != old_phone:
+                            updates.append("phone = %s")
+                            values.append(new_phone)
+                            add_to_history('phone', old_phone, new_phone)
+                    
                     if update.birth_date is not None:
-                        birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
-                        updates.append("birth_date = %s"); values.append(birth_val)
-                    if update.email is not None:
-                        updates.append("email = %s"); values.append(update.email)
+                        new_birth = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                        if new_birth != old_birth_date:
+                            updates.append("birth_date = %s")
+                            values.append(new_birth)
+                            add_to_history('birth_date', old_birth_date, new_birth)
+                    
+                    if update.email is not None and update.email != old_email:
+                        updates.append("email = %s")
+                        values.append(update.email)
+                        add_to_history('email', old_email, update.email)
             
-            elif is_manager and is_self:
+            elif is_self:
                 if update.phone is not None:
-                    updates.append("phone = %s"); values.append(update.phone if update.phone else None)
+                    new_phone = update.phone if update.phone else None
+                    if new_phone != old_phone:
+                        updates.append("phone = %s")
+                        values.append(new_phone)
+                        add_to_history('phone', old_phone, new_phone)
+                
                 if update.birth_date is not None:
-                    birth_val = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
-                    updates.append("birth_date = %s"); values.append(birth_val)
-                if update.email is not None:
-                    updates.append("email = %s"); values.append(update.email)
+                    new_birth = update.birth_date if update.birth_date and update.birth_date.strip() != '' else None
+                    if new_birth != old_birth_date:
+                        updates.append("birth_date = %s")
+                        values.append(new_birth)
+                        add_to_history('birth_date', old_birth_date, new_birth)
+                
+                if update.email is not None and update.email != old_email:
+                    updates.append("email = %s")
+                    values.append(update.email)
+                    add_to_history('email', old_email, update.email)
             
             if not updates:
                 return {"message": "Нет данных для обновления или недостаточно прав"}
@@ -271,6 +352,34 @@ async def change_password(employee_id: int, password_data: PasswordChange):
             cur.execute("UPDATE employees SET password_hash = %s WHERE employee_id = %s", (password_hash, employee_id))
             conn.commit()
             return {"message": "Пароль изменён"}
+    finally:
+        conn.close()
+
+
+@router.get("/{employee_id}/history")
+async def get_employee_history(employee_id: int):
+    """Получение истории изменений сотрудника"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, field_name, old_value, new_value, changed_by, created_at
+                FROM employee_history
+                WHERE employee_id = %s
+                ORDER BY created_at DESC
+            """, (employee_id,))
+            rows = cur.fetchall()
+            history = []
+            for row in rows:
+                history.append({
+                    "id": row[0],
+                    "field_name": row[1],
+                    "old_value": row[2],
+                    "new_value": row[3],
+                    "changed_by": row[4],
+                    "created_at": row[5].strftime('%d.%m.%Y %H:%M') if row[5] else None
+                })
+            return history
     finally:
         conn.close()
 

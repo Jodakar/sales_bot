@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Заказ</title>
+    <title>TimoFeyA — Заказ</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -11,11 +11,6 @@
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-        }
-        .status-select {
-            padding: 8px;
-            border-radius: 5px;
-            margin-right: 10px;
         }
         .items-table {
             width: 100%;
@@ -76,18 +71,6 @@
         .edit-order-btn:hover {
             background: #2980b9;
         }
-        .confirm-payment-btn {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        .confirm-payment-btn:hover {
-            background: #219a52;
-        }
         .send-info-btn {
             background: #9b59b6;
             color: white;
@@ -111,18 +94,32 @@
         .history-btn:hover {
             background: #7f8c8d;
         }
-        .confirm-delivery-btn {
-            background: #f39c12;
+        .save-comment-btn {
+            background: #27ae60;
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 5px 12px;
             border-radius: 5px;
             cursor: pointer;
-            margin-right: 10px;
-            position: relative;
+            font-size: 12px;
+            margin-left: 10px;
         }
-        .confirm-delivery-btn:hover {
-            background: #e67e22;
+        .save-comment-btn:hover {
+            background: #219a52;
+        }
+        .comment-edit {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .comment-edit textarea {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
         }
         .messenger-btn {
             display: inline-block;
@@ -168,16 +165,11 @@
             background: white;
             margin: 10% auto;
             padding: 20px;
-            width: 400px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
             border-radius: 10px;
             position: relative;
-        }
-        .modal-content input {
-            width: 100%;
-            padding: 8px;
-            margin: 8px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
         }
         .close {
             position: absolute;
@@ -185,11 +177,6 @@
             right: 20px;
             cursor: pointer;
             font-size: 24px;
-        }
-        .history-modal {
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
         }
         .history-table {
             width: 100%;
@@ -203,34 +190,10 @@
         .history-table th {
             background: #f5f5f5;
         }
-        .delivery-menu {
-            position: relative;
-            display: inline-block;
-        }
-        .delivery-menu-content {
-            display: none;
-            position: absolute;
-            background-color: white;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
-            border-radius: 5px;
-            margin-top: 5px;
-        }
-        .delivery-menu-content button {
-            width: 100%;
-            padding: 10px;
-            text-align: left;
-            border: none;
-            background: white;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .delivery-menu-content button:hover {
-            background: #f0f0f0;
-        }
-        .delivery-menu:hover .delivery-menu-content {
-            display: block;
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
     </style>
 </head>
@@ -238,8 +201,8 @@
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -262,24 +225,24 @@
         </div>
     </div>
 
-    <!-- Модальное окно загрузки файла для подтверждения оплаты -->
-    <div id="paymentModal" class="modal">
+    <!-- Модальное окно истории статусов -->
+    <div id="historyModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closePaymentModal()">&times;</span>
-            <h3>Подтверждение оплаты</h3>
-            <p>Загрузите чек, скриншот или выписку (PNG, JPEG, PDF)</p>
-            <input type="file" id="payment_file" accept=".png,.jpg,.jpeg,.pdf">
-            <button onclick="uploadPaymentProof()" style="margin-top: 10px;">Подтвердить оплату</button>
-            <div id="paymentError" style="color: red;"></div>
+            <span class="close" onclick="closeHistoryModal()">&times;</span>
+            <h3>📜 История изменений</h3>
+            <div id="history-content">Загрузка...</div>
         </div>
     </div>
 
-    <!-- Модальное окно истории статусов -->
-    <div id="historyModal" class="modal">
-        <div class="modal-content history-modal">
-            <span class="close" onclick="closeHistoryModal()">&times;</span>
-            <h3>История изменения статусов</h3>
-            <div id="history-content">Загрузка...</div>
+    <!-- Модальное окно выбора сотрудников доставки -->
+    <div id="deliveryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDeliveryModal()">&times;</span>
+            <h3>🚚 Отправить заказ в доставку</h3>
+            <p>Выберите сотрудников доставки, которые получат уведомление:</p>
+            <div id="deliveryEmployeesList"></div>
+            <button onclick="sendToDelivery()" style="margin-top: 20px;">📨 Отправить</button>
+            <div id="deliveryError" style="color: red; margin-top: 10px;"></div>
         </div>
     </div>
 
@@ -292,6 +255,7 @@
         }
         
         let orderData = null;
+        let deliveryEmployees = [];
         
         fetch(`/api/auth/check?token=${token}`)
             .then(res => res.json())
@@ -305,17 +269,20 @@
                 }
             });
         
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
         function getStatusBadge(status) {
             if (status === 'paid') return '<span class="status-paid">✅ Оплачен</span>';
             if (status === 'not_paid') return '<span class="status-not_paid">⏳ Не оплачен</span>';
             if (status === 'delivered') return '<span class="status-delivered">🚚 Доставлен</span>';
-            return status;
-        }
-        
-        function getStatusText(status) {
-            if (status === 'paid') return 'Оплачен';
-            if (status === 'not_paid') return 'Не оплачен';
-            if (status === 'delivered') return 'Доставлен';
             return status;
         }
         
@@ -351,170 +318,25 @@
             }
         }
         
-        async function confirmDelivery() {
-            if (confirm('Подтвердить доставку заказа?')) {
-                try {
-                    const response = await fetch(`/api/orders/${order_id}/confirm-delivery`, {
-                        method: 'POST'
-                    });
-                    if (response.ok) {
-                        alert('✅ Доставка подтверждена! Статус заказа изменён на "Доставлен"');
-                        loadOrder();
-                    } else {
-                        const error = await response.json();
-                        alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
-                    }
-                } catch(e) {
-                    alert('Ошибка подключения к серверу');
-                }
-            }
-        }
-        
-        function cancelDelivery() {
-            alert('Действие отменено');
-        }
-        
-        async function loadOrder() {
-            try {
-                const response = await fetch(`/api/orders/${order_id}`);
-                if (!response.ok) {
-                    throw new Error('Заказ не найден');
-                }
-                orderData = await response.json();
-                
-                let itemsHtml = '<h3>Товары в заказе</h3>';
-                if (orderData.items && orderData.items.length > 0) {
-                    itemsHtml += '<div class="table-container">';
-                    itemsHtml += '<table class="items-table" style="width:100%; border-collapse: collapse; font-size:14px;">';
-                    itemsHtml += '<thead>';
-                    itemsHtml += '<tr style="background:#f5f5f5;">';
-                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">ID товара</th>';
-                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Наименование</th>';
-                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Кол-во</th>';
-                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Цена</th>';
-                    itemsHtml += '<th style="padding:12px; text-align:left; border-bottom:2px solid #ddd;">Сумма</th>';
-                    itemsHtml += ' </thead><tbody>';
-                    
-                    for (let i = 0; i < orderData.items.length; i++) {
-                        const item = orderData.items[i];
-                        const itemTotal = item.price * item.quantity;
-                        const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
-                        itemsHtml += `<tr style="border-bottom:1px solid #eee; ${rowStyle}">`;
-                        itemsHtml += `<td style="padding:12px;">${item.product_id || '—'}</td>`;
-                        itemsHtml += `<td style="padding:12px;"><strong>${item.product_name || '—'}</strong></td>`;
-                        itemsHtml += `<td style="padding:12px;">${item.quantity || 0} шт</td>`;
-                        itemsHtml += `<td style="padding:12px;">${item.price ? item.price.toLocaleString() : '0'} ₽</td>`;
-                        itemsHtml += `<td style="padding:12px; font-weight:bold;">${itemTotal.toLocaleString()} ₽</td>`;
-                        itemsHtml += `</tr>`;
-                    }
-                    itemsHtml += '</tbody></tr></div>';
-                } else {
-                    itemsHtml += '<p>Нет товаров в заказе</p>';
-                }
-                
-                const addressText = orderData.customer_address || '—';
-                const commentText = orderData.comment || '—';
-                const deliveryMethod = orderData.delivery_method || 'Курьер';
-                const isNotPaid = orderData.status === 'not_paid';
-                const isPaid = orderData.status === 'paid';
-                const isDelivered = orderData.status === 'delivered';
-                
-                let actionButtons = '';
-                if (isNotPaid) {
-                    actionButtons = `
-                        <button class="edit-order-btn" onclick="editOrder()">✏️ Редактировать заказ</button>
-                        <button class="confirm-payment-btn" onclick="showPaymentModal()">💳 Подтвердить оплату</button>
-                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
-                        ${getMessengerButtons()}
-                    `;
-                } else if (isPaid) {
-                    actionButtons = `
-                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
-                        ${getMessengerButtons()}
-                        <div class="delivery-menu">
-                            <button class="confirm-delivery-btn">🚚 Подтвердить доставку ▼</button>
-                            <div class="delivery-menu-content">
-                                <button onclick="confirmDelivery()">✅ Подтвердить</button>
-                                <button onclick="cancelDelivery()">❌ Отмена</button>
-                            </div>
-                        </div>
-                    `;
-                } else if (isDelivered) {
-                    actionButtons = `
-                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
-                        ${getMessengerButtons()}
-                    `;
-                }
-                
-                const html = `
-                    <div class="detail-card">
-                        <h2>📦 Заказ #${orderData.order_id}</h2>
-                        <p><strong>👤 Клиент:</strong> ${orderData.customer_name}</p>
-                        <p><strong>📞 Телефон:</strong> ${orderData.customer_phone || '—'}</p>
-                        <p><strong>📧 Email:</strong> ${orderData.customer_email || '—'}</p>
-                        <p><strong>📍 Адрес:</strong> ${addressText}</p>
-                        <p><strong>🚚 Доставка:</strong> ${deliveryMethod}</p>
-                        <p><strong>📝 Комментарий:</strong> ${commentText}</p>
-                        <p><strong>💰 Сумма:</strong> ${orderData.total_amount.toLocaleString()} ₽</p>
-                        <p><strong>📅 Дата:</strong> ${orderData.created_at}</p>
-                        <p><strong>📊 Статус:</strong> ${getStatusBadge(orderData.status)}</p>
-                        <p><strong>👤 Оформил:</strong> ${orderData.created_by_name || '—'}</p>
-                        <div style="margin-top: 15px;">
-                            ${actionButtons}
-                            <button class="history-btn" onclick="showStatusHistory()">📜 История статусов</button>
-                        </div>
-                    </div>
-                    ${itemsHtml}
-                `;
-                
-                document.getElementById('order-detail').innerHTML = html;
-            } catch(e) {
-                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа</p>';
-            }
-        }
-        
-        function editOrder() {
-            window.location.href = `/orders/${order_id}/edit`;
-        }
-        
-        function showPaymentModal() {
-            document.getElementById('paymentModal').style.display = 'block';
-            document.getElementById('payment_file').value = '';
-            document.getElementById('paymentError').textContent = '';
-        }
-        
-        function closePaymentModal() {
-            document.getElementById('paymentModal').style.display = 'none';
-        }
-        
-        async function uploadPaymentProof() {
-            const fileInput = document.getElementById('payment_file');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                document.getElementById('paymentError').textContent = 'Выберите файл';
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('file', file);
+        async function saveComment() {
+            const newComment = document.getElementById('comment_textarea').value;
             
             try {
-                const response = await fetch(`/api/orders/${order_id}/confirm-payment`, {
-                    method: 'POST',
-                    body: formData
+                const response = await fetch(`/api/orders/${order_id}/comment`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ comment: newComment })
                 });
                 
                 if (response.ok) {
-                    alert('✅ Оплата подтверждена! Статус заказа изменён на "Оплачен"');
-                    closePaymentModal();
+                    alert('✅ Комментарий сохранён');
                     loadOrder();
                 } else {
                     const error = await response.json();
-                    document.getElementById('paymentError').textContent = error.detail || 'Ошибка';
+                    alert('❌ Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
                 }
             } catch(e) {
-                document.getElementById('paymentError').textContent = 'Ошибка подключения к серверу';
+                alert('❌ Ошибка подключения к серверу');
             }
         }
         
@@ -531,17 +353,63 @@
                     return;
                 }
                 
-                let html = '<table class="history-table"><thead><th>Дата</th><th>Старый статус</th><th>Новый статус</th><th>Кто изменил</th></thead><tbody>';
+                let html = '<table class="history-table"><thead> ';
+                html += '<th style="padding:8px;">Дата</th>';
+                html += '<th style="padding:8px;">Что изменилось</th>';
+                html += '<th style="padding:8px;">Стало</th>';
+                html += '<th style="padding:8px;">Кто изменил</th>';
+                html += ' </thead><tbody>';
+                
                 for (let i = 0; i < history.length; i++) {
                     const h = history[i];
-                    html += `<tr style="border-bottom:1px solid #eee;">`;
-                    html += `<td style="padding:8px;">${h.created_at}</td>`;
-                    html += `<td style="padding:8px;">${h.old_status || '—'}<td>`;
-                    html += `<td style="padding:8px;">${h.new_status}</td>`;
-                    html += `<td style="padding:8px;">${h.changed_by || '—'}</td>`;
-                    html += `</tr>`;
+                    
+                    let whatChanged = '';
+                    let newValue = '';
+                    
+                    if (h.old_status === 'comment_update' || h.new_status === 'comment_update') {
+                        whatChanged = '📝 Комментарий';
+                        if (h.file_path && h.file_path.includes('→')) {
+                            const parts = h.file_path.split('→');
+                            let newValueRaw = parts[1].trim();
+                            newValueRaw = newValueRaw.replace(/^Стало:\s*/i, '');
+                            newValue = newValueRaw;
+                        } else {
+                            newValue = h.new_status || '—';
+                        }
+                    } else if (h.old_status === 'not_paid' && h.new_status === 'paid') {
+                        whatChanged = '💰 Статус оплаты';
+                        newValue = 'Оплачен';
+                    } else if (h.old_status === 'paid' && h.new_status === 'delivered') {
+                        whatChanged = '🚚 Статус доставки';
+                        newValue = 'Доставлен';
+                    } else if (h.old_status === 'not_paid' && h.new_status === 'delivered') {
+                        whatChanged = '📦 Статус заказа';
+                        newValue = 'Доставлен';
+                    } else {
+                        whatChanged = '📊 Статус заказа';
+                        const statusMap = {
+                            'not_paid': 'Не оплачен',
+                            'paid': 'Оплачен',
+                            'delivered': 'Доставлен'
+                        };
+                        newValue = statusMap[h.new_status] || h.new_status || '—';
+                    }
+                    
+                    let formattedDate = h.created_at;
+                    if (formattedDate && formattedDate.includes(' ')) {
+                        const dateParts = formattedDate.split(' ');
+                        formattedDate = `<span style="font-size:11px;">${dateParts[0]}<br>${dateParts[1]}</span>`;
+                    }
+                    
+                    html += '<tr style="border-bottom:1px solid #eee;">';
+                    html += '<td style="padding:8px; vertical-align:top;">' + formattedDate + ' ';
+                    html += '<td style="padding:8px; vertical-align:top;"><strong>' + whatChanged + '</strong> ';
+                    html += '<td style="padding:8px; vertical-align:top; color:#27ae60;">' + escapeHtml(newValue) + ' ';
+                    html += '<td style="padding:8px; vertical-align:top;">' + escapeHtml(h.changed_by || '—') + ' ';
+                    html += ' ';
                 }
-                html += '</tbody></table>';
+                
+                html += '</tbody> </div>';
                 document.getElementById('history-content').innerHTML = html;
             } catch(e) {
                 document.getElementById('history-content').innerHTML = '<p>Ошибка загрузки истории</p>';
@@ -550,6 +418,176 @@
         
         function closeHistoryModal() {
             document.getElementById('historyModal').style.display = 'none';
+        }
+        
+        async function loadDeliveryEmployees() {
+            try {
+                const response = await fetch('/api/employees/');
+                const employees = await response.json();
+                deliveryEmployees = employees.filter(e => e.role === 'delivery' && e.is_active === true);
+                
+                const container = document.getElementById('deliveryEmployeesList');
+                if (deliveryEmployees.length === 0) {
+                    container.innerHTML = '<p>Нет активных сотрудников доставки</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (let i = 0; i < deliveryEmployees.length; i++) {
+                    const emp = deliveryEmployees[i];
+                    html += `
+                        <div class="checkbox" style="margin: 10px 0;">
+                            <input type="checkbox" id="delivery_${emp.employee_id}" value="${emp.employee_id}">
+                            <label for="delivery_${emp.employee_id}">${escapeHtml(emp.full_name)} (${escapeHtml(emp.email)})</label>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch(e) {
+                document.getElementById('deliveryEmployeesList').innerHTML = '<p>Ошибка загрузки сотрудников</p>';
+            }
+        }
+        
+        function showDeliveryModal() {
+            loadDeliveryEmployees();
+            document.getElementById('deliveryModal').style.display = 'block';
+            document.getElementById('deliveryError').textContent = '';
+        }
+        
+        function closeDeliveryModal() {
+            document.getElementById('deliveryModal').style.display = 'none';
+        }
+        
+        async function sendToDelivery() {
+            const selectedIds = [];
+            for (let i = 0; i < deliveryEmployees.length; i++) {
+                const emp = deliveryEmployees[i];
+                const checkbox = document.getElementById(`delivery_${emp.employee_id}`);
+                if (checkbox && checkbox.checked) {
+                    selectedIds.push(emp.employee_id);
+                }
+            }
+            
+            if (selectedIds.length === 0) {
+                document.getElementById('deliveryError').textContent = 'Выберите хотя бы одного сотрудника';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/orders/${order_id}/send-to-delivery`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ delivery_employee_ids: selectedIds })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`✅ ${result.message}`);
+                    closeDeliveryModal();
+                } else {
+                    document.getElementById('deliveryError').textContent = result.detail || 'Ошибка отправки';
+                }
+            } catch(e) {
+                document.getElementById('deliveryError').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        async function loadOrder() {
+            try {
+                const response = await fetch(`/api/orders/${order_id}`);
+                if (!response.ok) {
+                    throw new Error('Заказ не найден');
+                }
+                orderData = await response.json();
+                
+                let itemsHtml = '<h3>Товары в заказе</h3>';
+                if (orderData.items && orderData.items.length > 0) {
+                    itemsHtml += '<div class="table-container">';
+                    itemsHtml += '<table class="items-table">';
+                    itemsHtml += '<thead>';
+                    itemsHtml += '<tr style="background:#f5f5f5;">';
+                    itemsHtml += '<th style="padding:12px;">ID товара</th>';
+                    itemsHtml += '<th style="padding:12px;">Наименование</th>';
+                    itemsHtml += '<th style="padding:12px;">Кол-во</th>';
+                    itemsHtml += '<th style="padding:12px;">Цена</th>';
+                    itemsHtml += '<th style="padding:12px;">Сумма</th>';
+                    itemsHtml += ' </thead><tbody>';
+                    
+                    for (let i = 0; i < orderData.items.length; i++) {
+                        const item = orderData.items[i];
+                        const itemTotal = item.price * item.quantity;
+                        const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
+                        itemsHtml += '<tr style="border-bottom:1px solid #eee; ' + rowStyle + '">';
+                        itemsHtml += '<td style="padding:12px;">' + (item.product_id || '—') + ' ';
+                        itemsHtml += '<td style="padding:12px;"><strong>' + escapeHtml(item.product_name || '—') + '</strong> ';
+                        itemsHtml += '<td style="padding:12px;">' + (item.quantity || 0) + ' шт ';
+                        itemsHtml += '<td style="padding:12px;">' + (item.price ? item.price.toLocaleString() : '0') + ' ₽ ';
+                        itemsHtml += '<td style="padding:12px; font-weight:bold;">' + itemTotal.toLocaleString() + ' ₽ ';
+                        itemsHtml += ' ';
+                    }
+                    itemsHtml += '</tbody> </div>';
+                } else {
+                    itemsHtml += '<p>Нет товаров в заказе</p>';
+                }
+                
+                const addressText = orderData.customer_address || '—';
+                const deliveryMethod = orderData.delivery_method || 'Курьер';
+                const isNotPaid = orderData.status === 'not_paid';
+                const isPaid = orderData.status === 'paid';
+                const isDelivered = orderData.status === 'delivered';
+                
+                let actionButtons = '';
+                if (isNotPaid) {
+                    actionButtons = `
+                        <button class="edit-order-btn" onclick="editOrder()">✏️ Редактировать заказ</button>
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        ${getMessengerButtons()}
+                    `;
+                } else if (isPaid) {
+                    actionButtons = `
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        <button class="edit-order-btn" onclick="showDeliveryModal()" style="background:#f39c12;">🚚 Отправить в доставку</button>
+                        ${getMessengerButtons()}
+                    `;
+                } else if (isDelivered) {
+                    actionButtons = `
+                        <button class="send-info-btn" onclick="sendInfoToCustomer()">📧 Отправить инфо клиенту</button>
+                        ${getMessengerButtons()}
+                    `;
+                }
+                
+                const html = `
+                    <div class="detail-card">
+                        <h2>📦 Заказ #${orderData.order_id}</h2>
+                        <p><strong>👤 Клиент:</strong> ${escapeHtml(orderData.customer_name)}</p>
+                        <p><strong>📞 Телефон:</strong> ${escapeHtml(orderData.customer_phone || '—')}</p>
+                        <p><strong>📧 Email:</strong> ${escapeHtml(orderData.customer_email || '—')}</p>
+                        <p><strong>📍 Адрес:</strong> ${escapeHtml(addressText)}</p>
+                        <p><strong>🚚 Доставка:</strong> ${escapeHtml(deliveryMethod)}</p>
+                        <p><strong>📝 Комментарий:</strong></p>
+                        <div class="comment-edit">
+                            <textarea id="comment_textarea" rows="3">${escapeHtml(orderData.comment || '')}</textarea>
+                            <button class="save-comment-btn" onclick="saveComment()">💾 Сохранить</button>
+                        </div>
+                        <p><strong>💰 Сумма:</strong> ${orderData.total_amount.toLocaleString()} ₽</p>
+                        <p><strong>📅 Дата:</strong> ${orderData.created_at}</p>
+                        <p><strong>📊 Статус:</strong> ${getStatusBadge(orderData.status)}</p>
+                        <p><strong>👤 Оформил:</strong> ${escapeHtml(orderData.created_by_name || '—')}</p>
+                        <div style="margin-top: 15px;">
+                            ${actionButtons}
+                            <button class="history-btn" onclick="showStatusHistory()">📜 История изменений</button>
+                        </div>
+                    </div>
+                    ${itemsHtml}
+                `;
+                
+                document.getElementById('order-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('order-detail').innerHTML = '<p>❌ Ошибка загрузки заказа: ' + e.message + '</p>';
+            }
+        }
+        
+        function editOrder() {
+            window.location.href = `/orders/${order_id}/edit`;
         }
         
         async function logout() {

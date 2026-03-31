@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Сотрудники</title>
+    <title>TimoFeyA — Сотрудники</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -13,21 +13,39 @@
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
-            margin-bottom: 20px;
         }
         .add-btn:hover {
             background: #219a52;
+        }
+        .company-btn {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .company-btn:hover {
+            background: #8e44ad;
         }
         .search-section {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         .search-section input {
-            flex: 1;
+            flex: 2;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            min-width: 200px;
+        }
+        .search-section select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
         }
         .search-section button {
             background: #3498db;
@@ -95,6 +113,14 @@
         }
         .role-manager {
             background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 12px;
+        }
+        .role-delivery {
+            background: #2c3e50;
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -224,14 +250,20 @@
             background: #667eea;
             color: white;
         }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -248,12 +280,22 @@
         </div>
         
         <div class="search-section">
-            <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону...">
+            <input type="text" id="searchInput" placeholder="Поиск по имени, email, телефону, роли..." autocomplete="off">
+            <select id="roleFilter">
+                <option value="">Все роли</option>
+                <option value="dev">Разработчик</option>
+                <option value="admin">Администратор</option>
+                <option value="manager">Менеджер</option>
+                <option value="delivery">Доставка</option>
+            </select>
             <button onclick="searchEmployees()">🔍 Найти</button>
             <button onclick="resetSearch()">✖️ Сброс</button>
         </div>
         
-        <button class="add-btn" onclick="showAddModal()">➕ Добавить сотрудника</button>
+        <div class="action-buttons">
+            <button class="add-btn" onclick="showAddModal()">➕ Добавить сотрудника</button>
+            <button class="company-btn" onclick="window.location.href='/company'">🏢 Реквизиты компании</button>
+        </div>
         
         <div class="card">
             <h2>👥 Список сотрудников</h2>
@@ -280,19 +322,18 @@
             </div>
             <label>Дата рождения</label>
             <input type="date" id="add_birth_date">
-            <label>Логин *</label>
-            <input type="text" id="add_login">
             <label>Пароль *</label>
             <input type="password" id="add_password">
             <label>Роль</label>
             <select id="add_role" onchange="toggleRightsByRole('add')">
                 <option value="manager">Менеджер</option>
+                <option value="delivery">Доставка</option>
                 <option value="admin">Администратор</option>
                 <option value="dev">Разработчик</option>
             </select>
             <div class="checkbox">
                 <input type="checkbox" id="add_can_upload_excel">
-                <label>Разрешить загрузку Excel</label>
+                <label>Разрешить импорт Excel</label>
             </div>
             <div class="checkbox">
                 <input type="checkbox" id="add_can_edit_company_details">
@@ -322,11 +363,24 @@
                 editCheckbox = document.getElementById('edit_can_edit_company_details');
             }
             
-            if (roleSelect && roleSelect.value === 'manager') {
-                if (uploadCheckbox) uploadCheckbox.disabled = true;
-                if (editCheckbox) editCheckbox.disabled = true;
-                if (uploadCheckbox) uploadCheckbox.checked = false;
-                if (editCheckbox) editCheckbox.checked = false;
+            if (roleSelect && roleSelect.value === 'dev') {
+                if (uploadCheckbox) {
+                    uploadCheckbox.disabled = true;
+                    uploadCheckbox.checked = true;
+                }
+                if (editCheckbox) {
+                    editCheckbox.disabled = true;
+                    editCheckbox.checked = true;
+                }
+            } else if (roleSelect && (roleSelect.value === 'manager' || roleSelect.value === 'delivery')) {
+                if (uploadCheckbox) {
+                    uploadCheckbox.disabled = true;
+                    uploadCheckbox.checked = false;
+                }
+                if (editCheckbox) {
+                    editCheckbox.disabled = true;
+                    editCheckbox.checked = false;
+                }
             } else {
                 if (uploadCheckbox) uploadCheckbox.disabled = false;
                 if (editCheckbox) editCheckbox.disabled = false;
@@ -345,6 +399,19 @@
                 }
                 currentUser = data.user;
                 document.getElementById('userName').textContent = data.user.name;
+                
+                // Принудительная очистка поля поиска
+                const searchInput = document.getElementById('searchInput');
+                const roleFilter = document.getElementById('roleFilter');
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.setAttribute('value', '');
+                }
+                if (roleFilter) {
+                    roleFilter.value = '';
+                    roleFilter.setAttribute('value', '');
+                }
+                
                 return data.user;
             } catch(e) {
                 return null;
@@ -354,12 +421,23 @@
         function getRoleBadge(role) {
             if (role === 'dev') return '<span class="role-dev">Разработчик</span>';
             if (role === 'admin') return '<span class="role-admin">Администратор</span>';
+            if (role === 'delivery') return '<span class="role-delivery">Доставка</span>';
             return '<span class="role-manager">Менеджер</span>';
         }
         
         function getStatusBadge(isActive) {
             if (isActive) return '<span class="active-badge">Активен</span>';
             return '<span class="inactive-badge">Неактивен</span>';
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
         
         function canEditEmployee(targetEmployee) {
@@ -371,10 +449,10 @@
             
             if (isDev) return true;
             if (isAdmin && isSelf) return true;
-            if (isAdmin && targetRole === 'manager') return true;
+            if (isAdmin && (targetRole === 'manager' || targetRole === 'delivery')) return true;
             if (isAdmin && targetRole === 'admin' && isSelf) return true;
             if (isAdmin && targetRole === 'dev') return false;
-            if (isSelf && (currentUser.role === 'manager' || currentUser.role === 'admin')) return true;
+            if (isSelf && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'delivery')) return true;
             return false;
         }
         
@@ -403,32 +481,34 @@
                 const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
                 
                 html += '<tr style="border-bottom:1px solid #eee; ' + rowStyle + '">';
-                html += '<td style="padding:12px;">' + e.employee_id + '</td>';
-                html += '<td style="padding:12px;"><strong>' + e.full_name + '</strong></td>';
-                html += '<td style="padding:12px;">' + e.email + '</td>';
-                html += '<td style="padding:12px;">' + (e.phone || '—') + '</td>';
-                html += '<td style="padding:12px;">' + getRoleBadge(e.role) + '</td>';
-                html += '<td style="padding:12px;">' + getStatusBadge(e.is_active) + '</td>';
+                html += '<td style="padding:12px;">' + e.employee_id + ' ';
+                html += '<td style="padding:12px;"><strong>' + escapeHtml(e.full_name) + '</strong> ';
+                html += '<td style="padding:12px;">' + escapeHtml(e.email) + ' ';
+                html += '<td style="padding:12px;">' + (e.phone ? escapeHtml(e.phone) : '—') + ' ';
+                html += '<td style="padding:12px;">' + getRoleBadge(e.role) + ' ';
+                html += '<td style="padding:12px;">' + getStatusBadge(e.is_active) + ' ';
                 html += '<td style="padding:12px;">';
                 html += '<button class="view-btn" onclick="viewEmployee(' + e.employee_id + ')">👁️ Детали</button>';
                 html += '<button class="edit-btn ' + editDisabledClass + '" onclick="editEmployee(' + e.employee_id + ')" ' + editDisabledAttr + '>✏️</button>';
                 if (currentUser && currentUser.role === 'dev' && currentUser.employee_id !== e.employee_id) {
                     html += '<button class="delete-btn" onclick="deleteEmployee(' + e.employee_id + ')">🗑️</button>';
                 }
-                html += '</td>';
-                html += '</tr>';
+                html += ' ';
+                html += ' ';
             }
             
-            html += '</tbody></table>';
+            html += '</tbody> ';
             document.getElementById('employees-table').innerHTML = html;
         }
         
-        async function loadEmployees(query = '') {
+        async function loadEmployees(query = '', role = '') {
             try {
                 let url = '/api/employees/';
-                if (query && query.trim() !== '') {
-                    url = `/api/employees/search?query=${encodeURIComponent(query)}`;
-                }
+                const params = [];
+                if (query && query.trim() !== '') params.push(`query=${encodeURIComponent(query)}`);
+                if (role && role.trim() !== '') params.push(`role=${encodeURIComponent(role)}`);
+                if (params.length > 0) url = `/api/employees/search?${params.join('&')}`;
+                
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const employees = await response.json();
@@ -441,11 +521,21 @@
         
         function searchEmployees() {
             const query = document.getElementById('searchInput').value.trim();
-            loadEmployees(query);
+            const role = document.getElementById('roleFilter').value;
+            loadEmployees(query, role);
         }
         
         function resetSearch() {
-            document.getElementById('searchInput').value = '';
+            const searchInput = document.getElementById('searchInput');
+            const roleFilter = document.getElementById('roleFilter');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.setAttribute('value', '');
+            }
+            if (roleFilter) {
+                roleFilter.value = '';
+                roleFilter.setAttribute('value', '');
+            }
             loadEmployees();
         }
         
@@ -478,7 +568,6 @@
             document.getElementById('add_email').value = '';
             document.getElementById('add_phone').value = '';
             document.getElementById('add_birth_date').value = '';
-            document.getElementById('add_login').value = '';
             document.getElementById('add_password').value = '';
             document.getElementById('add_role').value = 'manager';
             document.getElementById('add_can_upload_excel').checked = false;
@@ -489,13 +578,12 @@
         
         async function addEmployee() {
             const full_name = document.getElementById('add_full_name').value.trim();
-            const email = document.getElementById('add_email').value.trim();
-            const login = document.getElementById('add_login').value.trim();
+            const email = document.getElementById('add_email').value.trim().toLowerCase();
             const password = document.getElementById('add_password').value;
             const phone = document.getElementById('add_phone').value.trim();
             
-            if (!full_name || !email || !login || !password) {
-                document.getElementById('addError').textContent = 'Заполните все обязательные поля';
+            if (!full_name || !email || !password) {
+                document.getElementById('addError').textContent = 'Заполните все обязательные поля (ФИО, Email, Пароль)';
                 return;
             }
             
@@ -514,7 +602,7 @@
                 email: email,
                 phone: phone ? '+' + phone : null,
                 birth_date: document.getElementById('add_birth_date').value || null,
-                login: login,
+                login: email,
                 password: password,
                 role: document.getElementById('add_role').value,
                 can_upload_excel: document.getElementById('add_can_upload_excel').checked,
@@ -540,11 +628,8 @@
             }
         }
         
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchEmployees();
-            }
-        });
+        document.getElementById('searchInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') searchEmployees(); });
+        document.getElementById('roleFilter').addEventListener('keypress', function(e) { if (e.key === 'Enter') searchEmployees(); });
         
         async function logout() {
             const token = localStorage.getItem('token');
@@ -555,6 +640,26 @@
         }
         
         getCurrentUser().then(() => loadEmployees());
+    </script>
+    
+    <!-- Принудительная очистка после загрузки DOM -->
+    <script>
+        (function() {
+            setTimeout(function() {
+                const searchInput = document.getElementById('searchInput');
+                const roleFilter = document.getElementById('roleFilter');
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.setAttribute('value', '');
+                }
+                if (roleFilter) {
+                    roleFilter.value = '';
+                    roleFilter.setAttribute('value', '');
+                }
+                if (localStorage.getItem('saved_search')) localStorage.removeItem('saved_search');
+                if (localStorage.getItem('saved_role')) localStorage.removeItem('saved_role');
+            }, 100);
+        })();
     </script>
 </body>
 </html>

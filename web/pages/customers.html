@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TimoFey — Клиенты</title>
+    <title>TimoFeyA — Клиенты</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/style.css">
     <style>
@@ -76,22 +76,9 @@
             padding: 5px 10px;
             border-radius: 3px;
             cursor: pointer;
-            margin-right: 5px;
         }
         .view-btn:hover {
             background: #2980b9;
-        }
-        .edit-btn {
-            background: #f39c12;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-        .edit-btn:hover {
-            background: #e67e22;
         }
         .nav-links a.active {
             background: #667eea;
@@ -164,8 +151,8 @@
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="/static/favicon.ico" alt="TimoFey">
-                <h1>TimoFey</h1>
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -264,21 +251,30 @@
                 const c = customers[i];
                 const rowStyle = i % 2 === 0 ? 'background:#ffffff;' : 'background:#f9f9f9;';
                 html += '<tr style="border-bottom:1px solid #eee; ' + rowStyle + '">';
-                html += '<td style="padding:12px;">' + c.customer_id + '</td>';
-                html += '<td style="padding:12px;"><strong>' + c.full_name + '</strong></td>';
-                html += '<td style="padding:12px;">' + (c.phone || '—') + '</td>';
-                html += '<td style="padding:12px;">' + (c.email || '—') + '</td>';
-                html += '<td style="padding:12px;">' + (c.address || '—') + '</td>';
-                html += '<td style="padding:12px;">' + (c.orders_count || 0) + '</td>';
+                html += '<td style="padding:12px;">' + c.customer_id + ' ';
+                html += '<td style="padding:12px;"><strong>' + escapeHtml(c.full_name) + '</strong> ';
+                html += '<td style="padding:12px;">' + (c.phone ? escapeHtml(c.phone) : '—') + ' ';
+                html += '<td style="padding:12px;">' + (c.email ? escapeHtml(c.email) : '—') + ' ';
+                html += '<td style="padding:12px;">' + (c.address ? escapeHtml(c.address) : '—') + ' ';
+                html += '<td style="padding:12px;">' + (c.orders_count || 0) + ' ';
                 html += '<td style="padding:12px;">';
                 html += '<button class="view-btn" onclick="viewCustomer(' + c.customer_id + ')">👁️ Детали</button>';
-                html += '<button class="edit-btn" onclick="editCustomer(' + c.customer_id + ')">✏️</button>';
-                html += '</td>';
-                html += '</tr>';
+                html += ' ';
+                html += ' ';
             }
             
-            html += '</tbody></table>';
+            html += '</tbody> ';
             document.getElementById('customers-table').innerHTML = html;
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
         }
         
         async function loadCustomers(query = '') {
@@ -309,10 +305,6 @@
         
         function viewCustomer(id) {
             window.location.href = `/customers/${id}`;
-        }
-        
-        function editCustomer(id) {
-            window.location.href = `/customers/${id}/edit`;
         }
         
         function showAddModal() {

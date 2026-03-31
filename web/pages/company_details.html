@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>TimoFeyA — Реквизиты компании</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .details-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            border-bottom: 1px solid #eee;
+            padding: 8px 0;
+        }
+        .detail-item strong {
+            color: #333;
+            min-width: 160px;
+            display: inline-block;
+        }
+        .edit-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .edit-btn:hover {
+            background: #e67e22;
+        }
+        .save-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .save-btn:hover {
+            background: #219a52;
+        }
+        .cancel-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .back-btn {
+            background: #95a5a6;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+        .nav-links a.active {
+            background: #667eea;
+            color: white;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+        .info-text {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/static/favicon.ico" alt="TimoFeyA">
+                <h1>TimoFeyA</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">📊 Главная</a>
+            <a href="/products">🛍️ Товары</a>
+            <a href="/orders">📦 Заказы</a>
+            <a href="/customers">👥 Клиенты</a>
+            <a href="/employees" class="active">👤 Сотрудники</a>
+        </div>
+        
+        <button class="back-btn" onclick="window.location.href='/employees'">← Назад к сотрудникам</button>
+        
+        <div id="company-detail">
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+        let isEditing = false;
+        
+        if (!token) window.location.href = '/login';
+        
+        fetch(`/api/auth/check?token=${token}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    currentUser = data.user;
+                    document.getElementById('userName').textContent = data.user.name;
+                    loadCompanyDetails();
+                }
+            });
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        async function loadCompanyDetails() {
+            try {
+                const response = await fetch('/api/company/');
+                const data = await response.json();
+                
+                if (!data) {
+                    document.getElementById('company-detail').innerHTML = '<p>Реквизиты компании не настроены</p>';
+                    return;
+                }
+                
+                const canEdit = currentUser && (currentUser.role === 'dev');
+                
+                const html = `
+                    <div class="details-card">
+                        <h2>🏢 Реквизиты компании</h2>
+                        <div class="detail-grid">
+                            <div class="detail-item"><strong>Наименование:</strong> ${escapeHtml(data.company_name)}</div>
+                            <div class="detail-item"><strong>ИНН:</strong> ${escapeHtml(data.inn || '—')}</div>
+                            <div class="detail-item"><strong>Банковский счёт:</strong> ${escapeHtml(data.bank_account || '—')}</div>
+                            <div class="detail-item"><strong>Банк:</strong> ${escapeHtml(data.bank_name || '—')}</div>
+                            <div class="detail-item"><strong>БИК:</strong> ${escapeHtml(data.bik || '—')}</div>
+                            <div class="detail-item"><strong>Корр. счёт:</strong> ${escapeHtml(data.corr_account || '—')}</div>
+                            <div class="detail-item"><strong>Дата создания:</strong> ${escapeHtml(data.created_at || '—')}</div>
+                        </div>
+                        ${canEdit ? `<div style="margin-top: 20px;"><button class="edit-btn" onclick="startEdit()">✏️ Редактировать</button></div>` : ''}
+                    </div>
+                `;
+                
+                document.getElementById('company-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('company-detail').innerHTML = '<p>❌ Ошибка загрузки реквизитов</p>';
+            }
+        }
+        
+        function startEdit() {
+            isEditing = true;
+            loadEditForm();
+        }
+        
+        async function loadEditForm() {
+            try {
+                const response = await fetch('/api/company/');
+                const data = await response.json();
+                
+                const html = `
+                    <div class="details-card">
+                        <h2>✏️ Редактирование реквизитов</h2>
+                        <div class="form-group">
+                            <label>Наименование компании *</label>
+                            <input type="text" id="edit_company_name" value="${escapeHtml(data.company_name || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label>ИНН</label>
+                            <input type="text" id="edit_inn" value="${escapeHtml(data.inn || '')}" maxlength="12">
+                            <div class="info-text">10 или 12 цифр</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Банковский счёт</label>
+                            <input type="text" id="edit_bank_account" value="${escapeHtml(data.bank_account || '')}" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label>Банк</label>
+                            <input type="text" id="edit_bank_name" value="${escapeHtml(data.bank_name || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label>БИК</label>
+                            <input type="text" id="edit_bik" value="${escapeHtml(data.bik || '')}" maxlength="9">
+                        </div>
+                        <div class="form-group">
+                            <label>Корр. счёт</label>
+                            <input type="text" id="edit_corr_account" value="${escapeHtml(data.corr_account || '')}" maxlength="20">
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <button class="save-btn" onclick="saveCompanyDetails()">💾 Сохранить</button>
+                            <button class="cancel-btn" onclick="cancelEdit()">Отмена</button>
+                        </div>
+                        <div id="error" class="error"></div>
+                    </div>
+                `;
+                
+                document.getElementById('company-detail').innerHTML = html;
+            } catch(e) {
+                document.getElementById('company-detail').innerHTML = '<p>❌ Ошибка загрузки формы</p>';
+            }
+        }
+        
+        async function saveCompanyDetails() {
+            const company_name = document.getElementById('edit_company_name').value.trim();
+            if (!company_name) {
+                document.getElementById('error').textContent = 'Введите наименование компании';
+                return;
+            }
+            
+            const updateData = {
+                company_name: company_name,
+                inn: document.getElementById('edit_inn').value.trim() || null,
+                bank_account: document.getElementById('edit_bank_account').value.trim() || null,
+                bank_name: document.getElementById('edit_bank_name').value.trim() || null,
+                bik: document.getElementById('edit_bik').value.trim() || null,
+                corr_account: document.getElementById('edit_corr_account').value.trim() || null
+            };
+            
+            try {
+                const response = await fetch('/api/company/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (response.ok) {
+                    alert('✅ Реквизиты компании сохранены');
+                    isEditing = false;
+                    loadCompanyDetails();
+                } else {
+                    const error = await response.json();
+                    document.getElementById('error').textContent = error.detail || 'Ошибка сохранения';
+                }
+            } catch(e) {
+                document.getElementById('error').textContent = 'Ошибка подключения к серверу';
+            }
+        }
+        
+        function cancelEdit() {
+            isEditing = false;
+            loadCompanyDetails();
+        }
+        
+        async function logout() {
+            const token = localStorage.getItem('token');
+            if (token) await fetch(`/api/auth/logout?token=${token}`, { method: 'POST' });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

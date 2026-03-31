@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Диагностика клиента</title>
+</head>
+<body>
+    <h1>Диагностика API клиента</h1>
+    <div id="result">Загрузка...</div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        const customer_id = 1; // ID клиента для проверки
+        
+        async function test() {
+            try {
+                // Проверяем авторизацию
+                const authCheck = await fetch(`/api/auth/check?token=${token}`);
+                const authData = await authCheck.json();
+                document.getElementById('result').innerHTML += `<pre>Авторизация: ${JSON.stringify(authData, null, 2)}</pre>`;
+                
+                // Получаем данные клиента
+                const response = await fetch(`/api/customers/${customer_id}`);
+                const data = await response.json();
+                document.getElementById('result').innerHTML += `<pre>Данные клиента: ${JSON.stringify(data, null, 2)}</pre>`;
+                
+                // Проверяем структуру orders
+                if (data.orders) {
+                    document.getElementById('result').innerHTML += `<pre>Заказы: ${data.orders.length} шт.</pre>`;
+                } else {
+                    document.getElementById('result').innerHTML += `<pre>⚠️ Поле 'orders' отсутствует или undefined</pre>`;
+                }
+            } catch(e) {
+                document.getElementById('result').innerHTML += `<pre>❌ Ошибка: ${e.message}</pre>`;
+            }
+        }
+        
+        test();
+    </script>
+</body>
+</html>
